@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <!-- Soft minimal app icon background -->
+  <rect width="192" height="192" fill="#FF708C" rx="42" />
+  <!-- Crisp white flower -->
+  <g transform="translate(40, 40) scale(4.6)" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="m22 7.14-5.27 5.27"/>
+    <path d="M22 16.86 16.73 11.6"/>
+    <path d="M2 16.86 7.27 11.6"/>
+    <path d="m2 7.14 5.27 5.27"/>
+    <path d="M12 2v7.5"/>
+    <path d="M12 14.5V22"/>
+    <path d="M22 12h-7.5"/>
+    <path d="M9.5 12H2"/>
+    <path d="M12 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+  </g>
+</svg>

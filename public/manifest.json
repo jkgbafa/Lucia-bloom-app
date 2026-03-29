@@ -1,0 +1,17 @@
+{
+  "name": "Bloom - Period Tracker",
+  "short_name": "Bloom",
+  "description": "Your personal, private cycle companion.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF5F7",
+  "theme_color": "#FF6B8A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

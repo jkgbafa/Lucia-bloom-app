@@ -27,6 +27,9 @@ export default function AuthScreen() {
         periodDates: [],
         onboardingComplete: false,
         notificationsEnabled: false,
+        notifyPrePeriod: false,
+        notifyPhaseChange: false,
+        notifyLogReminder: false,
         darkMode: false,
         createdAt: new Date().toISOString(),
       };
@@ -45,6 +48,9 @@ export default function AuthScreen() {
         periodDates: [],
         onboardingComplete: false,
         notificationsEnabled: false,
+        notifyPrePeriod: false,
+        notifyPhaseChange: false,
+        notifyLogReminder: false,
         darkMode: false,
         createdAt: new Date().toISOString(),
       };
@@ -65,7 +71,7 @@ export default function AuthScreen() {
         <h1 className="auth-title">Bloom</h1>
         <p className="auth-subtitle">
           Your personal cycle companion.<br/>
-          Beautiful, private, and made just for you.
+          Beautiful, private, and made just for Lucia.
         </p>
 
         <div className="auth-features">
@@ -74,8 +80,8 @@ export default function AuthScreen() {
               <Heart size={20} color="var(--phase-menstrual)" />
             </div>
             <div className="auth-feature-text">
-              Complete Cycle Tracking
-              <span>Period, ovulation, phases & symptoms</span>
+              <div style={{ fontWeight: 600 }}>Complete Cycle Tracking</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Period, ovulation, phases & symptoms</div>
             </div>
           </div>
           
@@ -84,8 +90,8 @@ export default function AuthScreen() {
               <BarChart3 size={20} color="var(--phase-ovulation)" />
             </div>
             <div className="auth-feature-text">
-              Smart Insights & Analytics
-              <span>All free — no paywalls, ever</span>
+              <div style={{ fontWeight: 600 }}>Smart Insights & Analytics</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>All free — no paywalls, ever</div>
             </div>
           </div>
           
@@ -94,8 +100,8 @@ export default function AuthScreen() {
               <Bell size={20} color="var(--phase-luteal)" />
             </div>
             <div className="auth-feature-text">
-              Gentle Reminders
-              <span>Customizable, never invasive</span>
+              <div style={{ fontWeight: 600 }}>Gentle Reminders</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Customizable, never invasive</div>
             </div>
           </div>
           
@@ -104,14 +110,14 @@ export default function AuthScreen() {
               <Shield size={20} color="var(--phase-follicular)" />
             </div>
             <div className="auth-feature-text">
-              100% Private
-              <span>Your data stays yours. Always.</span>
+              <div style={{ fontWeight: 600 }}>100% Private</div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Your data stays yours. Always.</div>
             </div>
           </div>
         </div>
 
-        <button className="auth-google-btn" onClick={handleGoogleSignIn} id="google-sign-in-btn">
-          <svg className="auth-google-icon" viewBox="0 0 24 24">
+        <button className="auth-google-btn" onClick={handleGoogleSignIn} id="google-sign-in-btn" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <svg className="auth-google-icon" viewBox="0 0 24 24" width="24" height="24" style={{ flexShrink: 0 }}>
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />

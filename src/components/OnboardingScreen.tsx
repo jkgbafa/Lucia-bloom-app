@@ -7,7 +7,7 @@ import { Bell, Heart, Sparkles } from 'lucide-react';
 const ONBOARDING_STEPS = [
   {
     question: "Hi Lucia!",
-    description: "Joshua built this app just for you because he loves you and has been thinking about you. He took the time to create this completely from scratch so you never have to be surprised by your cycle again, and can always be prepared. Let's set it up together!",
+    description: "Joshua built this app just for Lucia because he loves you and has been thinking about you. He took the time to create this completely from scratch so you never have to be surprised by your cycle again, and can always be prepared. Let's set it up together!",
     type: 'welcome',
   },
   {

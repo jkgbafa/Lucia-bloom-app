@@ -1,12 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '@/lib/store';
 import {
   Moon, Sun, Bell, BellOff, Download, LogOut, Shield,
   Heart, User, Calendar, Trash2, ChevronRight,
-  Settings, CheckCircle, AlertTriangle
+  Settings, CheckCircle, AlertTriangle, CalendarRange, Activity, PenLine
 } from 'lucide-react';
+import {
+  requestNotificationPermission,
+  getNotificationPermission,
+  scheduleBloomNotifications,
+  requestFCMToken,
+} from '@/lib/notifications';
 
 export default function SettingsView() {
   const { state, updateUser, toggleDarkMode, logout, exportData } = useAppContext();
@@ -17,6 +23,34 @@ export default function SettingsView() {
   const [editingCycle, setEditingCycle] = useState(false);
   const [cycleLength, setCycleLength] = useState(user.cycleLength);
   const [periodLength, setPeriodLength] = useState(user.periodLength);
+  const [notifPermission, setNotifPermission] = useState<string>('default');
+
+  useEffect(() => {
+    setNotifPermission(getNotificationPermission());
+  }, []);
+
+  const handleRequestPermission = async () => {
+    const perm = await requestNotificationPermission();
+    setNotifPermission(perm);
+    if (perm === 'granted' && user.notificationsEnabled) {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready;
+        const token = await requestFCMToken(reg);
+        if (token && token !== user.fcmToken) {
+          updateUser({ fcmToken: token });
+        }
+      }
+
+      await scheduleBloomNotifications({
+        notifyPrePeriod: user.notifyPrePeriod,
+        notifyPhaseChange: user.notifyPhaseChange,
+        notifyLogReminder: user.notifyLogReminder,
+        lastPeriodStart: user.lastPeriodStart,
+        cycleLength: user.cycleLength,
+        periodLength: user.periodLength,
+      });
+    }
+  };
 
   const handleExport = () => {
     const data = exportData();
@@ -96,9 +130,85 @@ export default function SettingsView() {
       {/* Notifications */}
       <div className="settings-group">
         <div className="settings-group-title">Notifications</div>
+
+        {/* Permission status banner */}
+        {notifPermission !== 'granted' && (
+          <div style={{
+            background: notifPermission === 'denied' ? 'rgba(255,82,82,0.08)' : 'rgba(255,193,7,0.1)',
+            border: `1px solid ${notifPermission === 'denied' ? 'rgba(255,82,82,0.3)' : 'rgba(255,193,7,0.3)'}`,
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}>
+            <AlertTriangle size={18} color={notifPermission === 'denied' ? 'var(--error)' : '#f59e0b'} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
+                {notifPermission === 'denied'
+                  ? 'Notifications blocked'
+                  : 'Permission needed'}
+              </p>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {notifPermission === 'denied'
+                  ? 'Go to Chrome Settings → Site Settings → Notifications and allow this site.'
+                  : 'Tap below to allow Bloom to send you reminders.'}
+              </p>
+            </div>
+            {notifPermission !== 'denied' && (
+              <button
+                onClick={handleRequestPermission}
+                style={{
+                  background: 'var(--primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                Allow
+              </button>
+            )}
+          </div>
+        )}
+
+        {notifPermission === 'granted' && (
+          <div style={{
+            background: 'rgba(34,197,94,0.08)',
+            border: '1px solid rgba(34,197,94,0.25)',
+            borderRadius: '12px',
+            padding: '10px 16px',
+            marginBottom: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <CheckCircle size={16} color="var(--success)" />
+            <p style={{ fontSize: '12px', color: 'var(--success)', fontWeight: 500 }}>
+              Notifications are allowed on this device ✓
+            </p>
+          </div>
+        )}
+
         <div
           className="settings-item"
-          onClick={() => updateUser({ notificationsEnabled: !user.notificationsEnabled })}
+          onClick={() => {
+            const newVal = !user.notificationsEnabled;
+            updateUser({ 
+              notificationsEnabled: newVal,
+              notifyPrePeriod: newVal,
+              notifyPhaseChange: newVal,
+              notifyLogReminder: newVal
+            });
+            if (newVal && notifPermission !== 'granted') {
+              handleRequestPermission();
+            }
+          }}
         >
           <div className="settings-item-left">
             <div className="settings-item-icon" style={{ background: 'var(--phase-ovulation-bg)' }}>
@@ -107,12 +217,55 @@ export default function SettingsView() {
                 : <BellOff size={20} color="var(--text-tertiary)" />}
             </div>
             <div className="settings-item-text">
-              <h3>Push Notifications</h3>
+              <h3>Enable All Notifications</h3>
               <p>Period reminders, phase changes, wellness tips</p>
             </div>
           </div>
           <button className={`toggle ${user.notificationsEnabled ? 'active' : ''}`} id="notifications-toggle" />
         </div>
+
+        {user.notificationsEnabled && (
+          <div style={{ paddingLeft: '16px', paddingTop: '8px', borderTop: '1px solid var(--divider)', marginTop: '4px' }}>
+            <div className="settings-item" style={{ border: 'none', padding: '12px 0' }} onClick={() => updateUser({ notifyPrePeriod: !user.notifyPrePeriod })}>
+              <div className="settings-item-left">
+                <div className="settings-item-icon" style={{ width: '32px', height: '32px', background: 'transparent' }}>
+                  <CalendarRange size={18} color="var(--phase-menstrual)" />
+                </div>
+                <div className="settings-item-text">
+                  <h3 style={{ fontSize: '14px' }}>Pre-Period Alerts</h3>
+                  <p style={{ fontSize: '12px' }}>Your period is arriving in 2 days</p>
+                </div>
+              </div>
+              <button className={`toggle ${user.notifyPrePeriod ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} />
+            </div>
+
+            <div className="settings-item" style={{ border: 'none', padding: '12px 0' }} onClick={() => updateUser({ notifyPhaseChange: !user.notifyPhaseChange })}>
+              <div className="settings-item-left">
+                <div className="settings-item-icon" style={{ width: '32px', height: '32px', background: 'transparent' }}>
+                  <Activity size={18} color="var(--phase-ovulation)" />
+                </div>
+                <div className="settings-item-text">
+                  <h3 style={{ fontSize: '14px' }}>Phase Shifts</h3>
+                  <p style={{ fontSize: '12px' }}>Entering Follicular, Luteal, etc.</p>
+                </div>
+              </div>
+              <button className={`toggle ${user.notifyPhaseChange ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} />
+            </div>
+
+            <div className="settings-item" style={{ border: 'none', padding: '12px 0' }} onClick={() => updateUser({ notifyLogReminder: !user.notifyLogReminder })}>
+              <div className="settings-item-left">
+                <div className="settings-item-icon" style={{ width: '32px', height: '32px', background: 'transparent' }}>
+                  <PenLine size={18} color="var(--phase-luteal)" />
+                </div>
+                <div className="settings-item-text">
+                  <h3 style={{ fontSize: '14px' }}>Daily Check-In</h3>
+                  <p style={{ fontSize: '12px' }}>Did you notice any symptoms?</p>
+                </div>
+              </div>
+              <button className={`toggle ${user.notifyLogReminder ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cycle Settings */}

@@ -46,16 +46,21 @@ const PHASE_DATA: Record<string, Omit<PhaseInfo, 'dayInPhase' | 'totalDaysInPhas
     icon: 'Moon',
     color: 'var(--phase-menstrual)',
     nutritionTips: [
-      'Eat iron-rich foods: spinach, lentils, dark chocolate',
-      'Increase omega-3: salmon, walnuts, flaxseeds',
-      'Warm, comforting meals like soups and stews',
-      'Avoid excessive caffeine and salt',
+      'Eat iron-rich foods to replenish what you lose: spinach, lentils, dark chocolate, and red meat.',
+      'Increase omega-3 fatty acids to reduce inflammation: wild-caught salmon, walnuts, flaxseeds.',
+      'Enjoy warm, comforting meals like bone broth soups and root vegetable stews.',
+      'Avoid excessive caffeine, which can exacerbate cramps and anxiety.',
+      'Minimize salty foods to reduce natural period bloating.',
+      'Drink ginger or peppermint tea to intensely soothe uterine cramps.',
+      'Eat Vitamin C rich foods (citrus, bell peppers) to help your body absorb iron better.',
+      'Stay extremely hydrated! Water flushes out sodium and reduces bloating significantly.',
     ],
     exerciseTips: [
-      'Gentle yoga and stretching',
-      'Light walking',
-      'Restorative activities',
+      'Gentle yoga and restorative stretching',
+      'Light, unhurried walking outdoors',
+      'Restorative activities and deliberate rest',
       'Skip high-intensity workouts if you feel fatigued',
+      'Focus strictly on mobility and easing pelvic pressure',
     ],
   },
   follicular: {
@@ -71,16 +76,21 @@ const PHASE_DATA: Record<string, Omit<PhaseInfo, 'dayInPhase' | 'totalDaysInPhas
     icon: 'Leaf',
     color: 'var(--phase-follicular)',
     nutritionTips: [
-      'Light, fresh foods: salads, fermented foods',
-      'Lean proteins to support growing energy',
-      'Sprouted grains and seeds',
-      'Probiotic-rich foods for gut health',
+      'Eat light, fresh, vibrant foods: raw salads, fermented foods like kimchi or sauerkraut.',
+      'Lean proteins (chicken, turkey, tofu) to support your rapidly growing energy.',
+      'Sprouted grains, seeds, and nuts for sustained, even energy.',
+      'Probiotic-rich foods (kombucha, yogurt) to support gut health as estrogen rises.',
+      'Cruciferous vegetables (broccoli, cauliflower, kale) help your body naturally metabolize estrogen.',
+      'Oats and complex carbs provide the fuel your body needs for its new high-energy state.',
+      'Add pumpkin seeds and flaxseeds to support estrogen production naturally.',
+      'Hydrate with fresh juices or infused waters to match your refreshing internal energy.',
     ],
     exerciseTips: [
-      'Cardio and high-energy workouts',
-      'Try new exercise classes',
-      'Strength training',
-      'Running or cycling',
+      'Cardio and high-energy workouts are perfect now',
+      'Try totally new exercise classes to match your high curiosity',
+      'Strength training and lifting weights',
+      'Running, cycling, or intense hiking',
+      'Your physical endurance starts peaking here',
     ],
   },
   ovulation: {
@@ -96,16 +106,21 @@ const PHASE_DATA: Record<string, Omit<PhaseInfo, 'dayInPhase' | 'totalDaysInPhas
     icon: 'Sparkles',
     color: 'var(--phase-ovulation)',
     nutritionTips: [
-      'Antioxidant-rich foods: berries, leafy greens',
-      'Fiber-rich vegetables',
-      'Whole grains to support sustained energy',
-      'Light meals that don\'t weigh you down',
+      'Load up on antioxidant-rich foods: blueberries, raspberries, and dark leafy greens.',
+      'High-fiber vegetables (asparagus, Brussels sprouts) prevent estrogen dominance.',
+      'Whole grains (quinoa, brown rice) support sustained, high-vibration energy.',
+      'Eat light, frequent meals that don\'t weigh your digestive system down.',
+      'Incorporate raw foods and smoothies; your digestion is very strong right now.',
+      'Maca root powder can be added to your diet to support peak libido and stamina.',
+      'Healthy fats (avocado, olive oil) keep your skin glowing at its peak.',
+      'Zinc-rich foods (oysters, hemp seeds, pumpkin seeds) support a healthy egg release.',
     ],
     exerciseTips: [
-      'Peak performance time — go for personal bests',
-      'HIIT workouts',
-      'Group fitness classes',
-      'Competitive sports',
+      'Absolute peak physical performance time — go for personal bests!',
+      'HIIT (High-Intensity Interval Training) workouts',
+      'Group fitness classes and highly social sports',
+      'Competitive activities or marathons',
+      'You have the most natural stamina right now than any other time of the month.',
     ],
   },
   luteal: {
@@ -121,16 +136,21 @@ const PHASE_DATA: Record<string, Omit<PhaseInfo, 'dayInPhase' | 'totalDaysInPhas
     icon: 'Feather',
     color: 'var(--phase-luteal)',
     nutritionTips: [
-      'Complex carbs: sweet potatoes, brown rice',
-      'Magnesium-rich: dark chocolate, almonds, bananas',
-      'B6-rich foods to support mood: chickpeas, avocado',
-      'Reduce caffeine and alcohol to ease PMS',
+      'Focus heavily on complex carbs (sweet potatoes, root vegetables, brown rice) to natively boost serotonin and fight mood dips.',
+      'Eat Magnesium-rich foods daily (dark chocolate, almonds, bananas) to reduce irritability and prevent upcoming cramps.',
+      'B6-rich foods (chickpeas, avocado, salmon) naturally support mood stability.',
+      'Strictly reduce caffeine and alcohol, as both dramatically worsen PMS symptoms.',
+      'Eat foods high in calcium (yogurt, leafy greens) which has been medically shown to reduce PMS mood swings.',
+      'Warm up your digestion: switch from raw salads to roasted vegetables as your core temperature rises.',
+      'Drink dandelion root tea or eat asparagus to naturally reduce excess water weight and bloating.',
+      'Satisfy your cravings mindfully, but pair sugars with proteins and healthy fats to prevent blood sugar spikes and crashes.',
     ],
     exerciseTips: [
-      'Moderate exercise: walking, swimming',
-      'Pilates and barre',
-      'Gradually reduce intensity as period approaches',
-      'Stretching and foam rolling',
+      'Moderate exercise: walking, swimming, light jogging',
+      'Pilates, barre, and core-focused workouts early on',
+      'Gradually reduce workout intensity as your actual period approaches',
+      'Focus heavily on stretching, foam rolling, and mobility',
+      'Listen closely to your body—if you feel tired, swap the run for a walk.',
     ],
   },
 };
@@ -144,7 +164,7 @@ export function calculateCycleDay(lastPeriodStart: string, today?: Date): number
 }
 
 export function getCurrentPhase(cycleDay: number, cycleLength: number = 28, periodLength: number = 5): PhaseInfo {
-  const ovulationDay = Math.round(cycleLength / 2);
+  const ovulationDay = Math.max(1, cycleLength - 14);
   const follicularEnd = ovulationDay - 2;
   const ovulationEnd = ovulationDay + 1;
 
@@ -232,7 +252,7 @@ export function getDayInfo(
   if (cycleDay === 0) cycleDay = cycleLength;
 
   const phase = getCurrentPhase(cycleDay, cycleLength, periodLength);
-  const ovulationDay = Math.round(cycleLength / 2);
+  const ovulationDay = Math.max(1, cycleLength - 14);
 
   const isLoggedPeriod = loggedPeriodDates.includes(dateStr);
   const isPeriod = isLoggedPeriod || (cycleDay <= periodLength && diffDays >= 0);

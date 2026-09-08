@@ -30,10 +30,14 @@ export interface UserProfile {
   lastPeriodStart: string;
   periodDates: string[]; // All logged period dates
   onboardingComplete: boolean;
-  notificationsEnabled: boolean;
+  notificationsEnabled: boolean; // Master toggle
+  notifyPrePeriod: boolean;
+  notifyPhaseChange: boolean;
+  notifyLogReminder: boolean;
   hasSeenGuide?: boolean;
   darkMode: boolean;
   createdAt: string;
+  fcmToken?: string;
 }
 
 interface AppState {
@@ -81,14 +85,12 @@ function loadState(): AppState {
 async function syncToCloud(state: AppState) {
   if (!state.isAuthenticated || !state.user || !state.user.email) return;
   try {
-    if (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
-      const { db } = await import('@/lib/firebase');
-      await setDoc(doc(db, 'users', state.user.email), {
-        profile: state.user,
-        logs: state.logs,
-      }, { merge: true });
-      console.log('Synced secure data to cloud securely');
-    }
+    const { db } = await import('@/lib/firebase');
+    await setDoc(doc(db, 'users', state.user.email), {
+      profile: state.user,
+      logs: state.logs,
+    }, { merge: true });
+    console.log('Synced secure data to cloud securely');
   } catch (e) {
     console.error('Cloud sync failed - data is safe locally:', e);
   }
@@ -121,29 +123,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.removeAttribute('data-theme');
     }
 
-    // Try to mount Firebase listener if keys exist
-    if (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
-      import('@/lib/firebase').then(({ auth, db }) => {
-        onAuthStateChanged(auth, async (fbUser) => {
-          if (fbUser && fbUser.email) {
-            try {
-              const docSnap = await getDoc(doc(db, 'users', fbUser.email));
-              if (docSnap.exists()) {
-                const cloudData = docSnap.data();
-                setState(prev => ({
-                  ...prev,
-                  user: cloudData.profile || prev.user,
-                  logs: cloudData.logs || prev.logs,
-                  isAuthenticated: true
-                }));
-              }
-            } catch (e) {
-              console.error(e);
+    // Mount Firebase listener
+    import('@/lib/firebase').then(({ auth, db }) => {
+      onAuthStateChanged(auth, async (fbUser) => {
+        if (fbUser && fbUser.email) {
+          try {
+            const docSnap = await getDoc(doc(db, 'users', fbUser.email));
+            if (docSnap.exists()) {
+              const cloudData = docSnap.data();
+              setState(prev => ({
+                ...prev,
+                user: cloudData.profile || prev.user,
+                logs: cloudData.logs || prev.logs,
+                isAuthenticated: true
+              }));
             }
+          } catch (e) {
+            console.error(e);
           }
-        });
+        }
       });
-    }
+    }).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -167,11 +167,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(prev => {
       const newLogs = { ...prev.logs, [log.date]: log };
 
-      // Update period dates if this day is marked as period
+      // Update period dates 
       let updatedUser = prev.user;
-      if (prev.user && log.isPeriod) {
-        const periodDates = [...new Set([...(prev.user.periodDates || []), log.date])].sort();
-        updatedUser = { ...prev.user, periodDates };
+      if (prev.user) {
+        let periodDates = prev.user.periodDates || [];
+        
+        if (log.isPeriod) {
+          // Add the precise date uniquely and sort
+          periodDates = [...new Set([...periodDates, log.date])].sort();
+        } else {
+          // Intelligently delete acccidental logs so it doesn't break history permanently
+          periodDates = periodDates.filter(d => d !== log.date);
+        }
+
+        let newLastPeriodStart = prev.user.lastPeriodStart;
+        if (periodDates.length > 0) {
+           // Mathematical logic to reverse-scan and dynamically determine the true Start date of the newest period
+           let startOfRecentPeriod = periodDates[periodDates.length - 1];
+           for (let i = periodDates.length - 1; i > 0; i--) {
+             const curr = new Date(periodDates[i] + 'T12:00:00Z');
+             const previous = new Date(periodDates[i-1] + 'T12:00:00Z');
+             const diffDays = Math.abs(curr.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24);
+             if (diffDays > 10) {
+                // Large gap proves a different cycle period boundary. Stop tracking backwards.
+                startOfRecentPeriod = periodDates[i];
+                break;
+             } else {
+                startOfRecentPeriod = periodDates[i-1];
+             }
+           }
+           newLastPeriodStart = startOfRecentPeriod;
+        }
+
+        updatedUser = { ...prev.user, periodDates, lastPeriodStart: newLastPeriodStart };
       }
 
       return { ...prev, logs: newLogs, user: updatedUser };

@@ -13,6 +13,7 @@ import {
 } from '@/lib/cycle-utils';
 import { Droplets, Smile, Zap, Moon } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import PhaseModal from './PhaseModal';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const renderIcon = (name: string, props: any = {}) => {
@@ -30,6 +31,7 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
   const { state, updateUser } = useAppContext();
   const user = state.user!;
   const [showWelcomeGuide, setShowWelcomeGuide] = React.useState(!user.hasSeenGuide);
+  const [showPhaseModal, setShowPhaseModal] = React.useState(false);
 
   const dismissGuide = () => {
     setShowWelcomeGuide(false);
@@ -174,10 +176,17 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
         </button>
       </div>
 
-      {/* Phase Info Card */}
-      <div className="card" style={{ borderLeft: `4px solid ${getPhaseColor()}`, borderRadius: 'var(--radius-md)' }}>
-        <div className="phase-info-title" style={{ color: getPhaseColor() }}>
-          {renderIcon(phase.icon, { size: 18, color: getPhaseColor() })} {phase.label}
+      {/* Phase Info Card (Tappable for Modal) */}
+      <div 
+        className="card clickable-card" 
+        style={{ borderLeft: `4px solid ${getPhaseColor()}`, borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+        onClick={() => setShowPhaseModal(true)}
+      >
+        <div className="phase-info-title" style={{ color: getPhaseColor(), display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {renderIcon(phase.icon, { size: 18, color: getPhaseColor() })} {phase.label}
+          </div>
+          <span style={{ fontSize: '11px', color: 'var(--primary)', background: 'var(--primary-light)', padding: '2px 8px', borderRadius: '12px' }}>Foods & Tips</span>
         </div>
         <div className="phase-info-desc" style={{ color: 'var(--text-primary)' }}>
           {phase.description}
@@ -251,57 +260,15 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
         </div>
       </div>
 
-      {/* Nutrition & Exercise Tips */}
-      <div className="card" style={{ marginTop: 'var(--space-md)' }}>
-        <div className="card-header">
-          <span className="card-title">
-            {renderIcon('Coffee', { size: 18, color: 'var(--text-secondary)' })} Phase Nutrition
-          </span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-          {phase.nutritionTips.map((tip, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 'var(--space-sm)',
-              fontSize: '13px',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.5,
-            }}>
-              <span style={{ minWidth: '16px' }}>•</span>
-              <span>{tip}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
-        <div className="card-header">
-          <span className="card-title">
-            {renderIcon('Activity', { size: 18, color: 'var(--text-secondary)' })} Exercise Tips
-          </span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-          {phase.exerciseTips.map((tip, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 'var(--space-sm)',
-              fontSize: '13px',
-              color: 'var(--text-secondary)',
-              lineHeight: 1.5,
-            }}>
-              <span style={{ minWidth: '16px' }}>•</span>
-              <span>{tip}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      
       {/* Made by Joshua Footer */}
       <div style={{ textAlign: 'center', padding: 'var(--space-xl) 0', opacity: 0.4 }}>
         <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Made by Joshua</p>
       </div>
+
+      {/* Popups */}
+      {showPhaseModal && (
+        <PhaseModal phase={phase} onClose={() => setShowPhaseModal(false)} />
+      )}
     </div>
   );
 }

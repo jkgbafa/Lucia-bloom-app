@@ -3,8 +3,9 @@
 import React from 'react';
 import { useAppContext } from '@/lib/store';
 import { calculateCycleDay, getCurrentPhase, SYMPTOM_CATEGORIES } from '@/lib/cycle-utils';
-import { BarChart2, Droplet, Smile, Activity, Map, PenTool } from 'lucide-react';
+import { BarChart2, Droplet, Smile, Activity, Map, PenTool, Calendar } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import PhaseModal from './PhaseModal';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const renderIcon = (name: string, props: any = {}) => {
@@ -14,10 +15,50 @@ const renderIcon = (name: string, props: any = {}) => {
   return <IconComponent {...props} />;
 };
 
+const groupPeriodDates = (dates: string[]) => {
+  if (!dates || dates.length === 0) return [];
+  const sorted = [...new Set(dates)].sort();
+  const periods = [];
+  let currentPeriod = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevDate = new Date(sorted[i - 1]);
+    const currDate = new Date(sorted[i]);
+    const diffTime = Math.abs(currDate.getTime() - prevDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 10) {
+      currentPeriod.push(sorted[i]);
+    } else {
+      periods.push(currentPeriod);
+      currentPeriod = [sorted[i]];
+    }
+  }
+  periods.push(currentPeriod);
+  
+  return periods.reverse().map((period, index, arr) => {
+    const startDate = period[0];
+    const endDate = period[period.length - 1];
+    const length = period.length;
+    
+    // Calculate cycle length based on previous chronological period
+    const prevChronologicalPeriod = arr[index + 1];
+    let cycleLength = null;
+    if (prevChronologicalPeriod) {
+      const prevStart = new Date(prevChronologicalPeriod[0]);
+      const currStart = new Date(startDate);
+      cycleLength = Math.ceil(Math.abs(currStart.getTime() - prevStart.getTime()) / (1000 * 60 * 60 * 24));
+    }
+    
+    return { startDate, endDate, length, cycleLength };
+  });
+};
+
 export default function InsightsView() {
   const { state } = useAppContext();
   const user = state.user!;
   const logs = Object.values(state.logs);
+  const [showPhaseModal, setShowPhaseModal] = React.useState(false);
 
   // Calculate stats
   const totalLogs = logs.length;
@@ -69,6 +110,8 @@ export default function InsightsView() {
   // Generate mock cycle length data for chart
   const cycleLengths = [user.cycleLength - 1, user.cycleLength, user.cycleLength + 2, user.cycleLength - 2, user.cycleLength, user.cycleLength + 1];
   const maxLength = Math.max(...cycleLengths);
+
+  const cycleHistory = groupPeriodDates(user.periodDates);
 
   return (
     <div className="page-enter">
@@ -128,10 +171,15 @@ export default function InsightsView() {
 
       {/* Current Phase Detail */}
       {phase && (
-        <div className="card" style={{ marginBottom: 'var(--space-md)", marginTop: "var(--space-md)' }}>
+        <div 
+          className="card clickable-card" 
+          style={{ marginBottom: 'var(--space-md)', marginTop: 'var(--space-md)', cursor: 'pointer' }}
+          onClick={() => setShowPhaseModal(true)}
+        >
           <div className="card-header">
-            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
               {renderIcon(phase.icon, { size: 18, color: 'var(--text-primary)' })} Current Phase
+              <span style={{ fontSize: '11px', color: 'var(--primary)', marginLeft: 'auto', background: 'var(--primary-light)', padding: '2px 8px', borderRadius: '12px' }}>Learn More</span>
             </span>
           </div>
           <div className={`cycle-phase-badge phase-${phase.name}`} style={{ marginTop: 0, marginBottom: 'var(--space-md)' }}>
@@ -281,6 +329,62 @@ export default function InsightsView() {
           </div>
         </div>
       </div>
+
+      {/* Cycle History */}
+      <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
+        <div className="card-header" style={{ marginBottom: 'var(--space-md)' }}>
+          <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Calendar size={18} color="var(--primary)" /> Cycle History
+          </span>
+        </div>
+        
+        {cycleHistory.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {cycleHistory.map((cycle, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: 'var(--space-md) 0',
+                borderBottom: i < cycleHistory.length - 1 ? '1px solid var(--divider)' : 'none'
+              }}>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    {new Date(cycle.startDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {cycle.startDate !== cycle.endDate && ` - ${new Date(cycle.endDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    Period length: {cycle.length} {cycle.length === 1 ? 'day' : 'days'}
+                  </div>
+                </div>
+                
+                {cycle.cycleLength ? (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                      {cycle.cycleLength} days
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Cycle length</div>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'right', fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                    First logged<br/>cycle
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state" style={{ padding: 'var(--space-md)', textAlign: 'center' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
+              No complete cycles logged yet.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {showPhaseModal && phase && (
+        <PhaseModal phase={phase} onClose={() => setShowPhaseModal(false)} />
+      )}
     </div>
   );
 }

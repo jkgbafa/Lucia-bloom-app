@@ -13,22 +13,67 @@ import {
   Home, CalendarDays, BarChart3, Settings, Plus,
   Moon, Sun, User, Flower2
 } from 'lucide-react';
+import {
+  registerServiceWorker,
+  requestNotificationPermission,
+  scheduleBloomNotifications,
+  requestFCMToken,
+} from '@/lib/notifications';
 
 type Tab = 'home' | 'calendar' | 'insights' | 'settings';
 
 export default function AppShell() {
-  const { state, toggleDarkMode } = useAppContext();
+  const { state, toggleDarkMode, updateUser } = useAppContext();
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [showLog, setShowLog] = useState(false);
   const [logDate, setLogDate] = useState<string | undefined>(undefined);
 
+  // Register service worker once on mount
   useEffect(() => {
-    if (state.user?.notificationsEnabled && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
+    registerServiceWorker();
+  }, []);
+
+  // Re-schedule notifications whenever prefs or cycle data changes
+  useEffect(() => {
+    const user = state.user;
+    if (!user) return;
+
+    async function syncNotifications() {
+      if (!user) return;
+      if (user.notificationsEnabled) {
+        const permission = await requestNotificationPermission();
+        if (permission === 'granted') {
+          // Setup background server push
+          if (!user.fcmToken && 'serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            const token = await requestFCMToken(reg);
+            if (token && token !== user.fcmToken) {
+              updateUser({ fcmToken: token });
+            }
+          }
+
+          // Setup local notifications
+          await scheduleBloomNotifications({
+            notifyPrePeriod: user.notifyPrePeriod,
+            notifyPhaseChange: user.notifyPhaseChange,
+            notifyLogReminder: user.notifyLogReminder,
+            lastPeriodStart: user.lastPeriodStart,
+            cycleLength: user.cycleLength,
+            periodLength: user.periodLength,
+          });
+        }
       }
     }
-  }, [state.user?.notificationsEnabled]);
+
+    syncNotifications();
+  }, [
+    state.user?.notificationsEnabled,
+    state.user?.notifyPrePeriod,
+    state.user?.notifyPhaseChange,
+    state.user?.notifyLogReminder,
+    state.user?.lastPeriodStart,
+    state.user?.cycleLength,
+  ]);
 
   // Not authenticated
   if (!state.isAuthenticated || !state.user) {

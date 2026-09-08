@@ -4,12 +4,12 @@ import { AppProvider } from "@/lib/store";
 
 export const metadata: Metadata = {
   title: "Bloom — Your Personal Cycle Companion",
-  description: "Beautiful, private period tracking made just for you. Track your cycle, symptoms, mood, and more — with zero data sharing.",
+  description: "Beautiful, private period tracking made just for Lucia. Track your cycle, symptoms, mood, and more — with zero data sharing.",
   keywords: ["period tracker", "cycle tracking", "menstrual health", "ovulation", "fertility"],
   authors: [{ name: "Made with love" }],
   openGraph: {
     title: "Bloom — Your Personal Cycle Companion",
-    description: "Beautiful, private period tracking made just for you.",
+    description: "Beautiful, private period tracking made just for Lucia.",
     type: "website",
   },
 };

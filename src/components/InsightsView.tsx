@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useAppContext } from '@/lib/store';
-import { calculateCycleDay, getCurrentPhase, SYMPTOM_CATEGORIES } from '@/lib/cycle-utils';
+import { calculateCycleDay, getCurrentPhase, computeCycleStats, getDayInfo, SYMPTOM_CATEGORIES } from '@/lib/cycle-utils';
 import { BarChart2, Droplet, Smile, Activity, Map, PenTool, Calendar } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import PhaseModal from './PhaseModal';
@@ -15,45 +15,6 @@ const renderIcon = (name: string, props: any = {}) => {
   return <IconComponent {...props} />;
 };
 
-const groupPeriodDates = (dates: string[]) => {
-  if (!dates || dates.length === 0) return [];
-  const sorted = [...new Set(dates)].sort();
-  const periods = [];
-  let currentPeriod = [sorted[0]];
-
-  for (let i = 1; i < sorted.length; i++) {
-    const prevDate = new Date(sorted[i - 1]);
-    const currDate = new Date(sorted[i]);
-    const diffTime = Math.abs(currDate.getTime() - prevDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 10) {
-      currentPeriod.push(sorted[i]);
-    } else {
-      periods.push(currentPeriod);
-      currentPeriod = [sorted[i]];
-    }
-  }
-  periods.push(currentPeriod);
-  
-  return periods.reverse().map((period, index, arr) => {
-    const startDate = period[0];
-    const endDate = period[period.length - 1];
-    const length = period.length;
-    
-    // Calculate cycle length based on previous chronological period
-    const prevChronologicalPeriod = arr[index + 1];
-    let cycleLength = null;
-    if (prevChronologicalPeriod) {
-      const prevStart = new Date(prevChronologicalPeriod[0]);
-      const currStart = new Date(startDate);
-      cycleLength = Math.ceil(Math.abs(currStart.getTime() - prevStart.getTime()) / (1000 * 60 * 60 * 24));
-    }
-    
-    return { startDate, endDate, length, cycleLength };
-  });
-};
-
 export default function InsightsView() {
   const { state } = useAppContext();
   const user = state.user!;
@@ -61,9 +22,32 @@ export default function InsightsView() {
   const [showPhaseModal, setShowPhaseModal] = React.useState(false);
 
   // Calculate stats
+  const stats = computeCycleStats(user);
   const totalLogs = logs.length;
   const periodDays = logs.filter(l => l.isPeriod).length;
-  const avgWater = totalLogs > 0 ? Math.round(logs.reduce((acc, l) => acc + (l.waterGlasses || 0), 0) / totalLogs) : 0;
+  // Only average over days where water was actually tracked
+  const waterDays = logs.filter(l => (l.waterGlasses || 0) > 0);
+  const avgWater = waterDays.length > 0 ? Math.round(waterDays.reduce((acc, l) => acc + l.waterGlasses, 0) / waterDays.length) : 0;
+
+  // Symptoms by phase: which symptoms show up most in each phase of her cycle.
+  // ponytail: past days are phase-classified by projecting the average cycle backwards
+  // (modulo), not by which real cycle they fell in; close enough for patterns, upgrade
+  // path is per-episode classification.
+  const phaseSymptoms: Record<string, Record<string, number>> = { menstrual: {}, follicular: {}, ovulation: {}, luteal: {} };
+  if (user.lastPeriodStart) {
+    logs.forEach(log => {
+      const info = getDayInfo(log.date, user.lastPeriodStart, stats.avgCycleLength, stats.avgPeriodLength, user.periodDates);
+      [...log.pain, ...log.body, ...log.mood].forEach(s => {
+        phaseSymptoms[info.phase][s] = (phaseSymptoms[info.phase][s] || 0) + 1;
+      });
+    });
+  }
+  const phasePatterns = Object.entries(phaseSymptoms)
+    .map(([phaseName, counts]) => ({
+      phaseName,
+      top: Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 3),
+    }))
+    .filter(p => p.top.length > 0);
 
   // Mood frequency
   const moodCounts: Record<string, number> = {};
@@ -103,15 +87,16 @@ export default function InsightsView() {
     return <span>{id}</span>;
   };
 
-  // Cycle visualization data (last 6 cycles)
   const cycleDay = user.lastPeriodStart ? calculateCycleDay(user.lastPeriodStart) : 0;
-  const phase = user.lastPeriodStart ? getCurrentPhase(cycleDay, user.cycleLength, user.periodLength) : null;
+  const phase = user.lastPeriodStart
+    ? getCurrentPhase(Math.min(cycleDay, stats.avgCycleLength), stats.avgCycleLength, stats.avgPeriodLength)
+    : null;
 
-  // Generate mock cycle length data for chart
-  const cycleLengths = [user.cycleLength - 1, user.cycleLength, user.cycleLength + 2, user.cycleLength - 2, user.cycleLength, user.cycleLength + 1];
-  const maxLength = Math.max(...cycleLengths);
+  // Real cycle lengths from her logged history (most recent last)
+  const cycleLengths = stats.recentCycleLengths;
+  const maxLength = Math.max(...cycleLengths, 1);
 
-  const cycleHistory = groupPeriodDates(user.periodDates);
+  const cycleHistory = [...stats.episodes].reverse(); // newest first
 
   return (
     <div className="page-enter">
@@ -125,11 +110,11 @@ export default function InsightsView() {
       {/* Quick Stats */}
       <div className="insights-grid">
         <div className="insight-card">
-          <div className="insight-value">{user.cycleLength}</div>
-          <div className="insight-label">Avg. Cycle Length</div>
+          <div className="insight-value">{stats.avgCycleLength}</div>
+          <div className="insight-label">{stats.learned ? 'Avg. Cycle Length' : 'Cycle Length (goal)'}</div>
         </div>
         <div className="insight-card">
-          <div className="insight-value">{user.periodLength}</div>
+          <div className="insight-value">{stats.avgPeriodLength}</div>
           <div className="insight-label">Avg. Period Length</div>
         </div>
         <div className="insight-card">
@@ -144,29 +129,41 @@ export default function InsightsView() {
         </div>
       </div>
 
-      {/* Cycle Length Chart */}
+      {/* Cycle Length Chart — real history only */}
       <div className="insight-chart">
         <div className="card-header" style={{ marginBottom: 0 }}>
           <span className="card-title">Cycle Length Trend</span>
-          <span className="card-subtitle" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Last 6 cycles</span>
+          <span className="card-subtitle" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+            Your last {cycleLengths.length} {cycleLengths.length === 1 ? 'cycle' : 'cycles'}
+          </span>
         </div>
-        <div className="chart-bars">
-          {cycleLengths.map((length, i) => (
-            <div className="chart-bar-wrapper" key={i}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>{length}</span>
-              <div
-                className="chart-bar"
-                style={{
-                  height: `${(length / maxLength) * 100}%`,
-                  background: i === cycleLengths.length - 1
-                    ? 'var(--primary-gradient)'
-                    : 'var(--border-color-strong)',
-                }}
-              />
-              <span className="chart-bar-label" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>C{i + 1}</span>
-            </div>
-          ))}
-        </div>
+        {cycleLengths.length >= 2 ? (
+          <div className="chart-bars">
+            {cycleLengths.map((length, i) => (
+              <div className="chart-bar-wrapper" key={i}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>{length}</span>
+                <div
+                  className="chart-bar"
+                  style={{
+                    height: `${(length / maxLength) * 100}%`,
+                    background: i === cycleLengths.length - 1
+                      ? 'var(--primary)'
+                      : 'var(--border-color-strong)',
+                  }}
+                />
+                <span className="chart-bar-label" style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                  {i === cycleLengths.length - 1 ? 'Latest' : `−${cycleLengths.length - 1 - i}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state" style={{ padding: 'var(--space-lg)', textAlign: 'center' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
+              Log at least two periods and your real trend will appear here.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Current Phase Detail */}
@@ -293,6 +290,34 @@ export default function InsightsView() {
         )}
       </div>
 
+      {/* Patterns by phase */}
+      {phasePatterns.length > 0 && (
+        <div className="card" style={{ marginBottom: 'var(--space-md)' }}>
+          <div className="card-header">
+            <span className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Map size={18} /> Your Patterns by Phase
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            {phasePatterns.map(({ phaseName, top }) => (
+              <div key={phaseName}>
+                <div className={`cycle-phase-badge phase-${phaseName}`} style={{ marginBottom: '6px', fontSize: '12px' }}>
+                  {phaseName.charAt(0).toUpperCase() + phaseName.slice(1)} phase
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {top.map(([symptomId, count]) => (
+                    <span key={symptomId} style={{ fontSize: '13px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', padding: '4px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {getSymptomLabel(symptomId)}
+                      <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>×{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Period Stats */}
       <div className="card" style={{ marginBottom: 'var(--space-md)' }}>
         <div className="card-header">
@@ -317,7 +342,7 @@ export default function InsightsView() {
             borderBottom: '1px solid var(--divider)',
           }}>
             <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Average period length</span>
-            <span style={{ fontSize: '14px', fontWeight: 600 }}>{user.periodLength} days</span>
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>{stats.avgPeriodLength} days</span>
           </div>
           <div style={{
             display: 'flex',
@@ -325,7 +350,9 @@ export default function InsightsView() {
             padding: 'var(--space-sm) 0',
           }}>
             <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Average cycle length</span>
-            <span style={{ fontSize: '14px', fontWeight: 600 }}>{user.cycleLength} days</span>
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>
+              {stats.avgCycleLength} days{stats.learned ? ` (±${stats.confidence})` : ''}
+            </span>
           </div>
         </div>
       </div>
@@ -350,11 +377,11 @@ export default function InsightsView() {
               }}>
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                    {new Date(cycle.startDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    {cycle.startDate !== cycle.endDate && ` - ${new Date(cycle.endDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                    {new Date(cycle.start + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {cycle.start !== cycle.end && ` - ${new Date(cycle.end + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    Period length: {cycle.length} {cycle.length === 1 ? 'day' : 'days'}
+                    Period length: {cycle.periodLength} {cycle.periodLength === 1 ? 'day' : 'days'}
                   </div>
                 </div>
                 
@@ -367,7 +394,7 @@ export default function InsightsView() {
                   </div>
                 ) : (
                   <div style={{ textAlign: 'right', fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                    First logged<br/>cycle
+                    Current<br/>cycle
                   </div>
                 )}
               </div>

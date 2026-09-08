@@ -16,7 +16,6 @@ import {
 import {
   registerServiceWorker,
   requestNotificationPermission,
-  scheduleBloomNotifications,
   requestFCMToken,
 } from '@/lib/notifications';
 
@@ -27,53 +26,39 @@ export default function AppShell() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [showLog, setShowLog] = useState(false);
   const [logDate, setLogDate] = useState<string | undefined>(undefined);
+  const [logSection, setLogSection] = useState<string | undefined>(undefined);
 
   // Register service worker once on mount
   useEffect(() => {
     registerServiceWorker();
   }, []);
 
-  // Re-schedule notifications whenever prefs or cycle data changes
+  // Keep the server push channel healthy: fresh FCM token + her timezone,
+  // so scheduled notifications arrive at the right local time.
+  const notificationsEnabled = state.user?.notificationsEnabled;
+  const savedFcmToken = state.user?.fcmToken;
+  const savedTimezone = state.user?.timezone;
   useEffect(() => {
-    const user = state.user;
-    if (!user) return;
+    if (!notificationsEnabled) return;
 
     async function syncNotifications() {
-      if (!user) return;
-      if (user.notificationsEnabled) {
-        const permission = await requestNotificationPermission();
-        if (permission === 'granted') {
-          // Setup background server push
-          if (!user.fcmToken && 'serviceWorker' in navigator) {
-            const reg = await navigator.serviceWorker.ready;
-            const token = await requestFCMToken(reg);
-            if (token && token !== user.fcmToken) {
-              updateUser({ fcmToken: token });
-            }
-          }
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (timezone && timezone !== savedTimezone) {
+        updateUser({ timezone });
+      }
 
-          // Setup local notifications
-          await scheduleBloomNotifications({
-            notifyPrePeriod: user.notifyPrePeriod,
-            notifyPhaseChange: user.notifyPhaseChange,
-            notifyLogReminder: user.notifyLogReminder,
-            lastPeriodStart: user.lastPeriodStart,
-            cycleLength: user.cycleLength,
-            periodLength: user.periodLength,
-          });
-        }
+      const permission = await requestNotificationPermission();
+      if (permission !== 'granted' || !('serviceWorker' in navigator)) return;
+
+      const reg = await navigator.serviceWorker.ready;
+      const token = await requestFCMToken(reg);
+      if (token && token !== savedFcmToken) {
+        updateUser({ fcmToken: token });
       }
     }
 
     syncNotifications();
-  }, [
-    state.user?.notificationsEnabled,
-    state.user?.notifyPrePeriod,
-    state.user?.notifyPhaseChange,
-    state.user?.notifyLogReminder,
-    state.user?.lastPeriodStart,
-    state.user?.cycleLength,
-  ]);
+  }, [notificationsEnabled, savedFcmToken, savedTimezone, updateUser]);
 
   // Not authenticated
   if (!state.isAuthenticated || !state.user) {
@@ -85,25 +70,27 @@ export default function AppShell() {
     return <OnboardingScreen />;
   }
 
-  const openLog = (date?: string) => {
+  const openLog = (date?: string, section?: string) => {
     setLogDate(date);
+    setLogSection(section);
     setShowLog(true);
   };
 
   const closeLog = () => {
     setShowLog(false);
     setLogDate(undefined);
+    setLogSection(undefined);
   };
 
-  const handleCalendarDateSelect = (_date: string) => {
-    // Could open log for that date
+  const handleCalendarDateSelect = (date: string) => {
+    openLog(date);
   };
 
   return (
     <div className="app-container">
       {/* Log screen overlay */}
       {showLog && (
-        <LogScreen date={logDate} onClose={closeLog} />
+        <LogScreen date={logDate} initialSection={logSection} onClose={closeLog} />
       )}
 
       {/* Header */}
@@ -145,7 +132,7 @@ export default function AppShell() {
 
       {/* Main Content */}
       <main className="app-content">
-        {activeTab === 'home' && <Dashboard onOpenLog={() => openLog()} />}
+        {activeTab === 'home' && <Dashboard onOpenLog={(section?: string) => openLog(undefined, section)} />}
         {activeTab === 'calendar' && <CalendarView onSelectDate={handleCalendarDateSelect} />}
         {activeTab === 'insights' && <InsightsView />}
         {activeTab === 'settings' && <SettingsView />}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext, DayLog } from '@/lib/store';
 import { SYMPTOM_CATEGORIES, formatDate } from '@/lib/cycle-utils';
 import { X, Droplets, Plus, Minus, CheckCircle, Droplet } from 'lucide-react';
@@ -16,6 +16,7 @@ const renderIcon = (name: string, props: any = {}) => {
 
 interface LogScreenProps {
   date?: string;
+  initialSection?: string; // 'period', a symptom category key, 'water', or 'journal'
   onClose: () => void;
 }
 
@@ -26,13 +27,14 @@ const FLOW_OPTIONS = [
   { id: 'heavy', label: 'Heavy', drops: 4 },
 ] as const;
 
-export default function LogScreen({ date, onClose }: LogScreenProps) {
+export default function LogScreen({ date, initialSection, onClose }: LogScreenProps) {
   const { logDay, getLog } = useAppContext();
   const logDate = date || formatDate(new Date());
 
   const existingLog = getLog(logDate);
 
-  const [isPeriod, setIsPeriod] = useState(existingLog?.isPeriod || false);
+  // Opening via "Log Period" pre-selects period mode
+  const [isPeriod, setIsPeriod] = useState(existingLog?.isPeriod || initialSection === 'period');
   const [flow, setFlow] = useState<DayLog['flow']>(existingLog?.flow);
   const [selectedSymptoms, setSelectedSymptoms] = useState<Record<string, string[]>>({
     mood: existingLog?.mood || [],
@@ -48,6 +50,16 @@ export default function LogScreen({ date, onClose }: LogScreenProps) {
   const [notes, setNotes] = useState(existingLog?.notes || '');
   const [waterGlasses, setWaterGlasses] = useState(existingLog?.waterGlasses || 0);
   const [showToast, setShowToast] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  // Scroll to the section she tapped (e.g. "Mood" from the dashboard)
+  useEffect(() => {
+    if (initialSection && initialSection !== 'period') {
+      document.getElementById(`log-section-${initialSection}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [initialSection]);
 
   const toggleSymptom = (category: string, symptomId: string) => {
     setSelectedSymptoms(prev => {
@@ -88,7 +100,7 @@ export default function LogScreen({ date, onClose }: LogScreenProps) {
 
     logDay(log);
     setShowToast(true);
-    setTimeout(() => {
+    closeTimer.current = setTimeout(() => {
       setShowToast(false);
       onClose();
     }, 1500);
@@ -169,7 +181,7 @@ export default function LogScreen({ date, onClose }: LogScreenProps) {
         {/* Symptom Categories */}
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {Object.entries(SYMPTOM_CATEGORIES).map(([key, category]: [string, any]) => (
-          <div className="log-section" key={key}>
+          <div className="log-section" key={key} id={`log-section-${key}`}>
             <h3 className="log-section-title">
               {renderIcon(category.icon, { size: 18, color: 'var(--text-secondary)' })}
               {category.label}
@@ -191,7 +203,7 @@ export default function LogScreen({ date, onClose }: LogScreenProps) {
         ))}
 
         {/* Water Intake */}
-        <div className="log-section">
+        <div className="log-section" id="log-section-water">
           <h3 className="log-section-title">
             {renderIcon('Droplet', { size: 18, color: 'var(--info)' })}
             Water Intake
@@ -221,7 +233,7 @@ export default function LogScreen({ date, onClose }: LogScreenProps) {
         </div>
 
         {/* Notes / Journal */}
-        <div className="log-section">
+        <div className="log-section" id="log-section-journal">
           <h3 className="log-section-title">
             {renderIcon('PenTool', { size: 18, color: 'var(--text-secondary)' })}
             Journal

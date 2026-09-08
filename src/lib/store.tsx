@@ -39,6 +39,7 @@ export interface UserProfile {
   darkMode: boolean;
   createdAt: string;
   fcmToken?: string;
+  timezone?: string; // IANA zone, so server push arrives at her local time
 }
 
 interface AppState {

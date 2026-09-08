@@ -24,11 +24,11 @@ assert.strictEqual(episodes[2].cycleLength, null, 'last episode has no next star
 
 // --- computeCycleStats learns from history, ignoring the onboarding constant
 const profile = {
-  periodDates: episodes.flatMap(() => []).concat([
+  periodDates: [
     '2026-01-01', '2026-01-02', '2026-01-03',
     '2026-01-27', '2026-01-28', '2026-01-29', // 26-day cycle
     '2026-02-22', '2026-02-23', '2026-02-24', // 26-day cycle
-  ]),
+  ],
   lastPeriodStart: '2026-02-22',
   cycleLength: 99, // wrong on purpose: learned value must win
   periodLength: 5,

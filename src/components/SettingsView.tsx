@@ -10,7 +10,6 @@ import {
 import {
   requestNotificationPermission,
   getNotificationPermission,
-  scheduleBloomNotifications,
   requestFCMToken,
 } from '@/lib/notifications';
 
@@ -40,15 +39,6 @@ export default function SettingsView() {
           updateUser({ fcmToken: token });
         }
       }
-
-      await scheduleBloomNotifications({
-        notifyPrePeriod: user.notifyPrePeriod,
-        notifyPhaseChange: user.notifyPhaseChange,
-        notifyLogReminder: user.notifyLogReminder,
-        lastPeriodStart: user.lastPeriodStart,
-        cycleLength: user.cycleLength,
-        periodLength: user.periodLength,
-      });
     }
   };
 

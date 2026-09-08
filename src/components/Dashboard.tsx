@@ -5,13 +5,11 @@ import { useAppContext } from '@/lib/store';
 import {
   calculateCycleDay,
   getCurrentPhase,
-  getDaysUntilPeriod,
   getDailyTip,
   formatShortDate,
-  getPredictedPeriodDate,
-  getOvulationDate,
+  computeCycleStats,
 } from '@/lib/cycle-utils';
-import { Droplets, Smile, Zap, Moon } from 'lucide-react';
+import { Droplets, Smile, Zap, Moon, AlertCircle } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import PhaseModal from './PhaseModal';
 
@@ -24,7 +22,7 @@ const renderIcon = (name: string, props: any = {}) => {
 };
 
 interface DashboardProps {
-  onOpenLog: () => void;
+  onOpenLog: (section?: string) => void;
 }
 
 export default function Dashboard({ onOpenLog }: DashboardProps) {
@@ -38,14 +36,17 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
     updateUser({ hasSeenGuide: true });
   };
 
-  const cycleDay = calculateCycleDay(user.lastPeriodStart);
-  const phase = getCurrentPhase(cycleDay, user.cycleLength, user.periodLength);
-  const daysUntil = getDaysUntilPeriod(user.lastPeriodStart, user.cycleLength);
+  const stats = computeCycleStats(user);
+  const hasHistory = Boolean(user.lastPeriodStart || stats.episodes.length > 0);
+  const anchorStart = stats.episodes.length > 0 ? stats.episodes[stats.episodes.length - 1].start : user.lastPeriodStart;
+  const cycleDay = hasHistory ? calculateCycleDay(anchorStart) : 0;
+  const phase = getCurrentPhase(Math.min(cycleDay, stats.avgCycleLength), stats.avgCycleLength, stats.avgPeriodLength);
+  const daysUntil = Math.max(0, stats.daysUntilPeriod);
   const dailyTip = getDailyTip(phase.name);
-  const nextPeriod = getPredictedPeriodDate(user.lastPeriodStart, user.cycleLength);
-  const ovulationDate = getOvulationDate(user.lastPeriodStart, user.cycleLength);
+  const nextPeriod = stats.nextPeriodDate;
+  const ovulationDate = stats.ovulationDate;
 
-  const progress = cycleDay / user.cycleLength;
+  const progress = Math.min(1, Math.max(0, cycleDay / stats.avgCycleLength));
   const circumference = 2 * Math.PI * 90;
   const strokeDashoffset = circumference * (1 - progress);
 
@@ -105,7 +106,53 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
         </p>
       </div>
 
+      {/* Overdue / forgot-to-log nudge */}
+      {stats.overdueDays >= 1 && (
+        <div
+          className="card"
+          role="alert"
+          style={{
+            border: '1px solid var(--phase-menstrual)',
+            background: 'var(--phase-menstrual-bg)',
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'flex-start',
+          }}
+        >
+          <AlertCircle size={22} color="var(--phase-menstrual)" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: '14px', fontWeight: 600, marginBottom: '4px' }}>
+              Your period was expected {stats.overdueDays === 1 ? 'yesterday' : `${stats.overdueDays} days ago`}
+            </p>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+              Did it start and you forgot to log it? Logging keeps your predictions accurate.
+            </p>
+            <button
+              className="onboarding-btn onboarding-btn-primary"
+              style={{ width: 'auto', padding: '8px 16px', fontSize: '14px' }}
+              onClick={() => onOpenLog('period')}
+            >
+              Log my period
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* First-time empty state */}
+      {!hasHistory && (
+        <div className="card" style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
+          <p style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>Welcome to Bloom 🌸</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Log your first period and Bloom will start predicting your cycle.
+          </p>
+          <button className="onboarding-btn onboarding-btn-primary" onClick={() => onOpenLog('period')}>
+            Log my period
+          </button>
+        </div>
+      )}
+
       {/* Cycle Ring */}
+      {hasHistory && (
       <div className="card" style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
         <div className="cycle-ring-container">
           <div className="cycle-ring">
@@ -124,7 +171,7 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
             </svg>
             <div className="cycle-ring-inner">
               <div className="cycle-day-number">{cycleDay}</div>
-              <div className="cycle-day-label">of {user.cycleLength} days</div>
+              <div className="cycle-day-label">of {stats.avgCycleLength} days</div>
             </div>
           </div>
 
@@ -134,41 +181,45 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
           </div>
 
           <div className="cycle-prediction">
-            {phase.name === 'menstrual' ? (
+            {stats.overdueDays >= 1 ? (
+              <>Period expected {formatShortDate(nextPeriod)} — not logged yet</>
+            ) : phase.name === 'menstrual' ? (
               <>Your period is here. Take care of yourself.</>
             ) : (
               <>
                 Period in <strong>{daysUntil} days</strong> · {formatShortDate(nextPeriod)}
+                {stats.learned && <span style={{ color: 'var(--text-tertiary)' }}> ±{stats.confidence}d</span>}
               </>
             )}
           </div>
         </div>
       </div>
+      )}
 
       {/* Quick Actions */}
       <div className="quick-actions">
-        <button className="quick-action-btn" onClick={onOpenLog}>
+        <button className="quick-action-btn" onClick={() => onOpenLog('period')}>
           <div className="quick-action-icon" style={{ background: 'var(--phase-menstrual-bg)' }}>
             <Droplets size={18} color="var(--phase-menstrual)" />
           </div>
           <span className="quick-action-label">Log Period</span>
         </button>
 
-        <button className="quick-action-btn" onClick={onOpenLog}>
+        <button className="quick-action-btn" onClick={() => onOpenLog('mood')}>
           <div className="quick-action-icon" style={{ background: 'var(--phase-follicular-bg)' }}>
             <Smile size={18} color="var(--phase-follicular)" />
           </div>
           <span className="quick-action-label">Mood</span>
         </button>
 
-        <button className="quick-action-btn" onClick={onOpenLog}>
+        <button className="quick-action-btn" onClick={() => onOpenLog('pain')}>
           <div className="quick-action-icon" style={{ background: 'var(--phase-ovulation-bg)' }}>
             <Zap size={18} color="var(--phase-ovulation)" />
           </div>
           <span className="quick-action-label">Symptoms</span>
         </button>
 
-        <button className="quick-action-btn" onClick={onOpenLog}>
+        <button className="quick-action-btn" onClick={() => onOpenLog('sleep')}>
           <div className="quick-action-icon" style={{ background: 'var(--phase-luteal-bg)' }}>
             <Moon size={18} color="var(--phase-luteal)" />
           </div>
@@ -252,9 +303,11 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
             alignItems: 'center',
             padding: 'var(--space-sm) 0',
           }}>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Cycle Length</span>
+            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Cycle Length{stats.learned ? ' (learned from your cycles)' : ''}
+            </span>
             <span style={{ fontSize: '14px', fontWeight: 600 }}>
-              {user.cycleLength} days
+              {stats.avgCycleLength} days
             </span>
           </div>
         </div>

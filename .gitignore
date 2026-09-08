@@ -43,3 +43,7 @@ next-env.d.ts
 # Local Netlify folder
 .netlify
 functions/node_modules
+
+# functions build output
+functions/lib/
+functions/node_modules/

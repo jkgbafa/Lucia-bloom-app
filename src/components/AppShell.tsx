@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAppContext } from '@/lib/store';
+import { useAppContext, IS_PREVIEW } from '@/lib/store';
 import AuthScreen from '@/components/AuthScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import Dashboard from '@/components/Dashboard';
@@ -88,6 +88,12 @@ export default function AppShell() {
 
   return (
     <div className="app-container">
+      {IS_PREVIEW && (
+        <div role="status" style={{ background: 'var(--phase-luteal-bg)', borderBottom: '1px solid var(--warning)', textAlign: 'center', fontSize: '12px', padding: '6px 12px', color: 'var(--text-primary)' }}>
+          Preview — sample data, nothing is saved
+        </div>
+      )}
+
       {/* Log screen overlay */}
       {showLog && (
         <LogScreen date={logDate} initialSection={logSection} onClose={closeLog} />

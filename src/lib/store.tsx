@@ -65,12 +65,67 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'luvia_app_data';
 
+// ?preview opens the app with sample data: no sign-in, nothing persisted.
+export const IS_PREVIEW =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview');
+
+function buildPreviewState(): AppState {
+  const day = (offset: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  };
+
+  // Three past periods, 26 days apart, most recent started 9 days ago → follicular today
+  const periodDates: string[] = [];
+  for (const start of [-61, -35, -9]) {
+    for (let i = 0; i < 5; i++) periodDates.push(day(start + i));
+  }
+
+  const baseLog = {
+    symptoms: [], mood: [], pain: [], body: [], discharge: [], activity: [],
+    sleep: [], sexual: [], digestion: [], energy: [], notes: '', waterGlasses: 0,
+    medications: [], isPeriod: false,
+  };
+
+  const logs: Record<string, DayLog> = {};
+  for (const start of [-61, -35, -9]) {
+    logs[day(start)] = { ...baseLog, date: day(start), isPeriod: true, flow: 'medium', pain: ['cramps'], symptoms: ['cramps'], mood: ['sensitive'], waterGlasses: 6 };
+    logs[day(start + 1)] = { ...baseLog, date: day(start + 1), isPeriod: true, flow: 'heavy', pain: ['cramps', 'backPain'], symptoms: ['cramps', 'backPain'], body: ['fatigue'], waterGlasses: 7 };
+    logs[day(start + 3)] = { ...baseLog, date: day(start + 3), isPeriod: true, flow: 'light', mood: ['calm'], waterGlasses: 5 };
+  }
+  logs[day(-2)] = { ...baseLog, date: day(-2), mood: ['happy', 'energetic'], energy: ['high'], activity: ['walking'], sleep: ['good'], waterGlasses: 8 };
+  logs[day(-1)] = { ...baseLog, date: day(-1), mood: ['confident'], energy: ['veryHigh'], body: ['clearSkin'], sleep: ['excellent'], waterGlasses: 7, notes: 'Feeling great today!' };
+
+  return {
+    user: {
+      ...makeDefaultProfile('Lucia', 'preview@bloom.app', ''),
+      cycleLength: 26,
+      periodLength: 5,
+      lastPeriodStart: day(-9),
+      periodDates,
+      onboardingComplete: true,
+      hasSeenGuide: true,
+      darkMode: false,
+    },
+    logs,
+    isAuthenticated: true,
+  };
+}
+
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 function loadState(): AppState {
   if (typeof window === 'undefined') {
     return { user: null, logs: {}, isAuthenticated: false };
+  }
+
+  if (IS_PREVIEW) {
+    return buildPreviewState();
   }
 
   try {
@@ -161,7 +216,7 @@ async function syncToCloud(state: AppState) {
 }
 
 function saveState(state: AppState) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || IS_PREVIEW) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     syncToCloud(state); // Fire-and-forget background sync
@@ -178,6 +233,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const loadedState = loadState();
     setState(loadedState);
     setLoaded(true);
+
+    // Preview mode stays on its sample data — no auth session, no cloud
+    if (IS_PREVIEW) return;
 
     // Mount Firebase listener
     import('@/lib/firebase').then(({ auth, db }) => {

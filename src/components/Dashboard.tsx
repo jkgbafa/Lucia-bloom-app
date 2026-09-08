@@ -82,7 +82,7 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
             <ul style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: '24px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li><strong>Track Today:</strong> Tap the big + button at the bottom to log your symptoms, flow, and journal for the day.</li>
               <li><strong>See Insights:</strong> Check the Insights tab for patterns in your cycle length, mood, and common symptoms.</li>
-              <li><strong>100% Private:</strong> Everything you enter lives locally on this exact device and never touches an external server. Feel completely safe.</li>
+              <li><strong>Private &amp; Safe:</strong> Everything you enter is saved on this device and backed up to your own private account — only you can see it, and it survives phone changes.</li>
             </ul>
             <button 
               className="onboarding-btn onboarding-btn-primary" 

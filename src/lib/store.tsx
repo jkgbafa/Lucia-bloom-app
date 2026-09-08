@@ -19,6 +19,7 @@ export interface DayLog {
   waterGlasses: number;
   medications: string[];
   isPeriod: boolean;
+  updatedAt?: string; // ISO timestamp of last edit, used to merge local vs cloud copies
 }
 
 export interface UserProfile {
@@ -55,6 +56,7 @@ interface AppContextType {
   getAllLogs: () => DayLog[];
   toggleDarkMode: () => void;
   logout: () => void;
+  deleteAllData: () => Promise<void>;
   exportData: () => string;
 }
 
@@ -80,6 +82,67 @@ function loadState(): AppState {
   }
 
   return { user: null, logs: {}, isAuthenticated: false };
+}
+
+export function makeDefaultProfile(name: string, email: string, photoURL: string): UserProfile {
+  return {
+    name,
+    email,
+    photoURL,
+    cycleLength: 28,
+    periodLength: 5,
+    lastPeriodStart: '',
+    periodDates: [],
+    onboardingComplete: false,
+    notificationsEnabled: false,
+    notifyPrePeriod: false,
+    notifyPhaseChange: false,
+    notifyLogReminder: false,
+    darkMode: false,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+// Scan backwards through sorted period dates to find the start of the most recent period.
+// A gap of more than 10 days marks the boundary with the previous cycle.
+export function deriveLastPeriodStart(periodDates: string[], fallback = ''): string {
+  if (periodDates.length === 0) return fallback;
+  let start = periodDates[periodDates.length - 1];
+  for (let i = periodDates.length - 1; i > 0; i--) {
+    const curr = new Date(periodDates[i] + 'T12:00:00Z');
+    const previous = new Date(periodDates[i - 1] + 'T12:00:00Z');
+    const diffDays = Math.abs(curr.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24);
+    if (diffDays > 10) return periodDates[i];
+    start = periodDates[i - 1];
+  }
+  return start;
+}
+
+// Merge cloud data into local data without losing either side.
+// Days present on only one side are kept; conflicting days go to the newer copy
+// (preferring local when timestamps are missing, since the device is where she logs).
+function mergeCloudIntoLocal(local: AppState, cloudProfile?: UserProfile, cloudLogs?: Record<string, DayLog>): AppState {
+  const logs: Record<string, DayLog> = { ...(cloudLogs || {}) };
+  for (const [date, localLog] of Object.entries(local.logs)) {
+    const cloudLog = logs[date];
+    const cloudIsNewer = cloudLog?.updatedAt && localLog.updatedAt && cloudLog.updatedAt > localLog.updatedAt;
+    if (!cloudIsNewer) {
+      logs[date] = localLog;
+    }
+  }
+
+  let user = local.user || cloudProfile || null;
+  if (local.user && cloudProfile) {
+    const periodDates = [...new Set([...(cloudProfile.periodDates || []), ...(local.user.periodDates || [])])].sort();
+    user = {
+      ...cloudProfile,
+      ...local.user, // local settings win; cloud fills anything local lacks
+      periodDates,
+      lastPeriodStart: deriveLastPeriodStart(periodDates, local.user.lastPeriodStart),
+    };
+  }
+
+  return { user, logs, isAuthenticated: true };
 }
 
 async function syncToCloud(state: AppState) {
@@ -131,15 +194,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const docSnap = await getDoc(doc(db, 'users', fbUser.email));
             if (docSnap.exists()) {
               const cloudData = docSnap.data();
-              setState(prev => ({
-                ...prev,
-                user: cloudData.profile || prev.user,
-                logs: cloudData.logs || prev.logs,
-                isAuthenticated: true
-              }));
+              setState(prev => mergeCloudIntoLocal(prev, cloudData.profile, cloudData.logs));
+            } else {
+              // Fresh account (e.g. arriving back from a redirect sign-in) with no backup yet
+              setState(prev => prev.user
+                ? { ...prev, isAuthenticated: true }
+                : { user: makeDefaultProfile(fbUser.displayName || 'Lucia', fbUser.email!, fbUser.photoURL || ''), logs: {}, isAuthenticated: true });
             }
           } catch (e) {
-            console.error(e);
+            console.error('Could not load cloud backup, keeping local data:', e);
           }
         }
       });
@@ -165,7 +228,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logDay = useCallback((log: DayLog) => {
     setState(prev => {
-      const newLogs = { ...prev.logs, [log.date]: log };
+      const stamped = { ...log, updatedAt: new Date().toISOString() };
+      const newLogs = { ...prev.logs, [log.date]: stamped };
 
       // Update period dates 
       let updatedUser = prev.user;
@@ -180,24 +244,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           periodDates = periodDates.filter(d => d !== log.date);
         }
 
-        let newLastPeriodStart = prev.user.lastPeriodStart;
-        if (periodDates.length > 0) {
-           // Mathematical logic to reverse-scan and dynamically determine the true Start date of the newest period
-           let startOfRecentPeriod = periodDates[periodDates.length - 1];
-           for (let i = periodDates.length - 1; i > 0; i--) {
-             const curr = new Date(periodDates[i] + 'T12:00:00Z');
-             const previous = new Date(periodDates[i-1] + 'T12:00:00Z');
-             const diffDays = Math.abs(curr.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24);
-             if (diffDays > 10) {
-                // Large gap proves a different cycle period boundary. Stop tracking backwards.
-                startOfRecentPeriod = periodDates[i];
-                break;
-             } else {
-                startOfRecentPeriod = periodDates[i-1];
-             }
-           }
-           newLastPeriodStart = startOfRecentPeriod;
-        }
+        const newLastPeriodStart = deriveLastPeriodStart(periodDates, prev.user.lastPeriodStart);
 
         updatedUser = { ...prev.user, periodDates, lastPeriodStart: newLastPeriodStart };
       }
@@ -230,10 +277,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Sign out of Firebase too, otherwise the auth listener restores everything on next load
+    import('@/lib/firebase')
+      .then(({ auth }) => import('firebase/auth').then(({ signOut }) => signOut(auth)))
+      .catch(console.error);
     setState({ user: null, logs: {}, isAuthenticated: false });
     document.documentElement.removeAttribute('data-theme');
     localStorage.removeItem(STORAGE_KEY);
   }, []);
+
+  const deleteAllData = useCallback(async () => {
+    // Remove the cloud copy first; only clear the device if that succeeds
+    const email = state.user?.email;
+    if (email) {
+      const { db, auth } = await import('@/lib/firebase');
+      const { deleteDoc } = await import('firebase/firestore');
+      if (auth.currentUser) {
+        await deleteDoc(doc(db, 'users', email));
+      }
+      const { signOut } = await import('firebase/auth');
+      await signOut(auth).catch(console.error);
+    }
+    setState({ user: null, logs: {}, isAuthenticated: false });
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.removeItem(STORAGE_KEY);
+  }, [state.user?.email]);
 
   const exportData = useCallback((): string => {
     const data = {
@@ -259,6 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getAllLogs,
         toggleDarkMode,
         logout,
+        deleteAllData,
         exportData,
       }}
     >

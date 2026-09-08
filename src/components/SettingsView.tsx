@@ -15,7 +15,7 @@ import {
 } from '@/lib/notifications';
 
 export default function SettingsView() {
-  const { state, updateUser, toggleDarkMode, logout, exportData } = useAppContext();
+  const { state, updateUser, toggleDarkMode, logout, deleteAllData, exportData } = useAppContext();
   const user = state.user!;
   const [showExportToast, setShowExportToast] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -373,15 +373,15 @@ export default function SettingsView() {
         {showSecurity && (
           <div className="card" style={{ padding: 'var(--space-md)', marginTop: '-8px', marginBottom: 'var(--space-md)', background: 'var(--bg-tertiary)', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
             <h4 style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--phase-follicular)' }}>
-              <Shield size={16} /> Bank-Grade Local Security
+              <Shield size={16} /> Private &amp; Backed Up
             </h4>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '8px' }}>
-              Unlike other tracking apps that store and sell your most intimate cycle data on cloud servers, <strong>Bloom operates 100% offline on your device</strong>.
+              Your data lives on this device and is <strong>backed up to your own private account</strong>, so it survives phone changes and app updates.
             </p>
             <ul style={{ fontSize: '13px', color: 'var(--text-secondary)', paddingLeft: '16px', lineHeight: 1.5 }}>
-              <li>Your cycle data, symptoms, and journal never leave this browser.</li>
-              <li>We do not have access to your health information.</li>
-              <li>No third parties, advertisers, or analytic companies can see your data.</li>
+              <li>Only you can access your backup — it&apos;s locked to your Google sign-in.</li>
+              <li>No third parties, advertisers, or analytics companies can see your data.</li>
+              <li>You can export or permanently delete everything at any time below.</li>
             </ul>
           </div>
         )}
@@ -424,7 +424,12 @@ export default function SettingsView() {
               </button>
               <button
                 className="onboarding-btn"
-                onClick={() => { logout(); }}
+                onClick={() => {
+                  deleteAllData().catch(err => {
+                    console.error(err);
+                    alert('Could not delete the cloud backup — check your connection and try again. Nothing was deleted.');
+                  });
+                }}
                 style={{
                   flex: 1,
                   background: 'var(--error)',

@@ -155,12 +155,160 @@ const PHASE_DATA: Record<string, Omit<PhaseInfo, 'dayInPhase' | 'totalDaysInPhas
   },
 };
 
+// Parse 'YYYY-MM-DD' as local midnight (new Date('YYYY-MM-DD') is UTC midnight,
+// which shifts the day for anyone west of Greenwich).
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function daysBetween(a: Date, b: Date): number {
+  const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((utcB - utcA) / (1000 * 60 * 60 * 24));
+}
+
+export interface PeriodEpisode {
+  start: string;
+  end: string;
+  periodLength: number;
+  cycleLength: number | null; // days from this start to the next episode's start
+}
+
+// Group individually logged period dates into distinct periods.
+// A gap of more than 10 days between logged dates starts a new period.
+export function groupPeriodEpisodes(periodDates: string[]): PeriodEpisode[] {
+  const dates = [...new Set(periodDates)].sort();
+  const episodes: PeriodEpisode[] = [];
+  let start: string | null = null;
+  let prev: string | null = null;
+
+  for (const date of dates) {
+    if (start === null || prev === null || daysBetween(parseLocalDate(prev), parseLocalDate(date)) > 10) {
+      if (start !== null && prev !== null) {
+        episodes.push({ start, end: prev, periodLength: daysBetween(parseLocalDate(start), parseLocalDate(prev)) + 1, cycleLength: null });
+      }
+      start = date;
+    }
+    prev = date;
+  }
+  if (start !== null && prev !== null) {
+    episodes.push({ start, end: prev, periodLength: daysBetween(parseLocalDate(start), parseLocalDate(prev)) + 1, cycleLength: null });
+  }
+
+  for (let i = 0; i < episodes.length - 1; i++) {
+    episodes[i].cycleLength = daysBetween(parseLocalDate(episodes[i].start), parseLocalDate(episodes[i + 1].start));
+  }
+  return episodes;
+}
+
+export interface CycleStats {
+  avgCycleLength: number;
+  avgPeriodLength: number;
+  confidence: number; // predictions are "± confidence days"
+  learned: boolean; // true when based on at least 2 completed real cycles
+  episodes: PeriodEpisode[];
+  recentCycleLengths: number[]; // most recent last, plausible values only
+  nextPeriodDate: Date;
+  daysUntilPeriod: number; // negative when the predicted date has passed
+  overdueDays: number; // days past the predicted start with no period logged (0 if none)
+  ovulationDate: Date;
+  fertileWindowStart: Date;
+  fertileWindowEnd: Date;
+}
+
+function median(values: number[]): number {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
+}
+
+// Predict from her real logged history instead of the onboarding constants.
+// Median of the last 6 plausible cycle lengths resists one-off outliers
+// (a skipped month or forgotten log won't wreck predictions).
+export function computeCycleStats(
+  profile: { periodDates?: string[]; lastPeriodStart: string; cycleLength: number; periodLength: number },
+  today: Date = new Date()
+): CycleStats {
+  const episodes = groupPeriodEpisodes(profile.periodDates || []);
+
+  const plausible = episodes
+    .map(e => e.cycleLength)
+    .filter((len): len is number => len !== null && len >= 15 && len <= 60);
+  const recentCycleLengths = plausible.slice(-6);
+  const learned = recentCycleLengths.length >= 2;
+
+  const avgCycleLength = learned ? median(recentCycleLengths) : (profile.cycleLength || 28);
+
+  const periodLengths = episodes.map(e => e.periodLength).filter(len => len >= 1 && len <= 10);
+  const avgPeriodLength = periodLengths.length >= 2
+    ? Math.round(periodLengths.reduce((a, b) => a + b, 0) / periodLengths.length)
+    : (profile.periodLength || 5);
+
+  // Spread of recent cycles → how much the prediction can wobble
+  let confidence = 2;
+  if (learned) {
+    const dev = recentCycleLengths.map(len => Math.abs(len - avgCycleLength));
+    confidence = Math.max(1, Math.min(7, median(dev) || 1));
+  }
+
+  const lastStart = episodes.length > 0
+    ? episodes[episodes.length - 1].start
+    : profile.lastPeriodStart;
+
+  const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let nextPeriodDate: Date;
+  let overdueDays = 0;
+
+  if (lastStart) {
+    const anchor = parseLocalDate(lastStart);
+    nextPeriodDate = new Date(anchor);
+    nextPeriodDate.setDate(nextPeriodDate.getDate() + avgCycleLength);
+
+    if (nextPeriodDate < todayMid) {
+      // Prediction passed with nothing logged: she's overdue (or forgot to log)
+      overdueDays = daysBetween(nextPeriodDate, todayMid);
+    }
+  } else {
+    nextPeriodDate = new Date(todayMid);
+    nextPeriodDate.setDate(nextPeriodDate.getDate() + avgCycleLength);
+  }
+
+  const daysUntilPeriod = daysBetween(todayMid, nextPeriodDate);
+
+  // If overdue, ovulation/fertile projections roll forward to the next expected cycle
+  const projectionAnchor = overdueDays > 0 ? new Date(nextPeriodDate.getTime()) : nextPeriodDate;
+  while (overdueDays > 0 && projectionAnchor < todayMid) {
+    projectionAnchor.setDate(projectionAnchor.getDate() + avgCycleLength);
+  }
+  const ovulationDate = new Date(projectionAnchor);
+  ovulationDate.setDate(ovulationDate.getDate() - 14);
+  const fertileWindowStart = new Date(ovulationDate);
+  fertileWindowStart.setDate(fertileWindowStart.getDate() - 5);
+  const fertileWindowEnd = new Date(ovulationDate);
+  fertileWindowEnd.setDate(fertileWindowEnd.getDate() + 1);
+
+  return {
+    avgCycleLength,
+    avgPeriodLength,
+    confidence,
+    learned,
+    episodes,
+    recentCycleLengths,
+    nextPeriodDate,
+    daysUntilPeriod,
+    overdueDays,
+    ovulationDate,
+    fertileWindowStart,
+    fertileWindowEnd,
+  };
+}
+
 export function calculateCycleDay(lastPeriodStart: string, today?: Date): number {
-  const start = new Date(lastPeriodStart);
+  const start = parseLocalDate(lastPeriodStart);
   const current = today || new Date();
-  const diffMs = current.getTime() - start.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  return (diffDays % 28) + 1; // Default 28-day cycle
+  // Real day count since the period started — no artificial 28-day wraparound
+  return daysBetween(start, current) + 1;
 }
 
 export function getCurrentPhase(cycleDay: number, cycleLength: number = 28, periodLength: number = 5): PhaseInfo {
@@ -200,7 +348,7 @@ export function getCurrentPhase(cycleDay: number, cycleLength: number = 28, peri
 }
 
 export function getPredictedPeriodDate(lastPeriodStart: string, cycleLength: number = 28): Date {
-  const start = new Date(lastPeriodStart);
+  const start = parseLocalDate(lastPeriodStart);
   const nextPeriod = new Date(start);
   nextPeriod.setDate(nextPeriod.getDate() + cycleLength);
 
@@ -243,10 +391,9 @@ export function getDayInfo(
   periodLength: number = 5,
   loggedPeriodDates: string[] = []
 ): DayInfo {
-  const date = new Date(dateStr);
-  const start = new Date(lastPeriodStart);
-  const diffMs = date.getTime() - start.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const date = parseLocalDate(dateStr);
+  const start = parseLocalDate(lastPeriodStart);
+  const diffDays = daysBetween(start, date);
 
   let cycleDay = ((diffDays % cycleLength) + cycleLength) % cycleLength;
   if (cycleDay === 0) cycleDay = cycleLength;
@@ -276,7 +423,11 @@ export function getDayInfo(
 }
 
 export function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
+  // Local calendar date — toISOString would shift the day near midnight in her timezone
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export function formatDisplayDate(date: Date): string {

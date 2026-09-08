@@ -4,9 +4,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Each user document is keyed by the owner's email address.
     // Only that signed-in user can read or write their own data.
+    // The partner account gets read-only access for the /partner dashboard.
     match /users/{userEmail} {
       allow read, write: if request.auth != null
         && request.auth.token.email == userEmail;
+      allow read: if request.auth != null
+        && request.auth.token.email == 'joshuagbafa108@gmail.com';
     }
   }
 }

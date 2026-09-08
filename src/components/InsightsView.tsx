@@ -4,16 +4,8 @@ import React from 'react';
 import { useAppContext } from '@/lib/store';
 import { calculateCycleDay, getCurrentPhase, computeCycleStats, getDayInfo, SYMPTOM_CATEGORIES } from '@/lib/cycle-utils';
 import { BarChart2, Droplet, Smile, Activity, Map, PenTool, Calendar } from 'lucide-react';
-import * as Icons from 'lucide-react';
+import { renderIcon } from '@/lib/icons';
 import PhaseModal from './PhaseModal';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const renderIcon = (name: string, props: any = {}) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const IconComponent = (Icons as any)[name];
-  if (!IconComponent) return null;
-  return <IconComponent {...props} />;
-};
 
 export default function InsightsView() {
   const { state } = useAppContext();

@@ -25,6 +25,8 @@ export default function SettingsView() {
   const [notifPermission, setNotifPermission] = useState<string>('default');
 
   useEffect(() => {
+    // Reading browser permission state has to happen client-side, after hydration
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNotifPermission(getNotificationPermission());
   }, []);
 
@@ -113,7 +115,7 @@ export default function SettingsView() {
               <p>Toggle between light and dark themes</p>
             </div>
           </div>
-          <button className={`toggle ${user.darkMode ? 'active' : ''}`} id="dark-mode-toggle" />
+          <button className={`toggle ${user.darkMode ? 'active' : ''}`} id="dark-mode-toggle" role="switch" aria-checked={user.darkMode} aria-label="Dark mode" />
         </div>
       </div>
 
@@ -124,8 +126,8 @@ export default function SettingsView() {
         {/* Permission status banner */}
         {notifPermission !== 'granted' && (
           <div style={{
-            background: notifPermission === 'denied' ? 'rgba(255,82,82,0.08)' : 'rgba(255,193,7,0.1)',
-            border: `1px solid ${notifPermission === 'denied' ? 'rgba(255,82,82,0.3)' : 'rgba(255,193,7,0.3)'}`,
+            background: notifPermission === 'denied' ? 'var(--phase-menstrual-bg)' : 'var(--phase-luteal-bg)',
+            border: `1px solid ${notifPermission === 'denied' ? 'var(--error)' : 'var(--warning)'}`,
             borderRadius: '12px',
             padding: '12px 16px',
             marginBottom: '8px',
@@ -133,7 +135,7 @@ export default function SettingsView() {
             alignItems: 'center',
             gap: '12px',
           }}>
-            <AlertTriangle size={18} color={notifPermission === 'denied' ? 'var(--error)' : '#f59e0b'} style={{ flexShrink: 0 }} />
+            <AlertTriangle size={18} color={notifPermission === 'denied' ? 'var(--error)' : 'var(--warning)'} style={{ flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
                 {notifPermission === 'denied'
@@ -169,8 +171,8 @@ export default function SettingsView() {
 
         {notifPermission === 'granted' && (
           <div style={{
-            background: 'rgba(34,197,94,0.08)',
-            border: '1px solid rgba(34,197,94,0.25)',
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--success)',
             borderRadius: '12px',
             padding: '10px 16px',
             marginBottom: '8px',
@@ -211,7 +213,7 @@ export default function SettingsView() {
               <p>Period reminders, phase changes, wellness tips</p>
             </div>
           </div>
-          <button className={`toggle ${user.notificationsEnabled ? 'active' : ''}`} id="notifications-toggle" />
+          <button className={`toggle ${user.notificationsEnabled ? 'active' : ''}`} id="notifications-toggle" role="switch" aria-checked={user.notificationsEnabled} aria-label="Enable all notifications" />
         </div>
 
         {user.notificationsEnabled && (
@@ -226,7 +228,7 @@ export default function SettingsView() {
                   <p style={{ fontSize: '12px' }}>Your period is arriving in 2 days</p>
                 </div>
               </div>
-              <button className={`toggle ${user.notifyPrePeriod ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} />
+              <button className={`toggle ${user.notifyPrePeriod ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} role="switch" aria-checked={user.notifyPrePeriod} aria-label="Pre-period alerts" />
             </div>
 
             <div className="settings-item" style={{ border: 'none', padding: '12px 0' }} onClick={() => updateUser({ notifyPhaseChange: !user.notifyPhaseChange })}>
@@ -239,7 +241,7 @@ export default function SettingsView() {
                   <p style={{ fontSize: '12px' }}>Entering Follicular, Luteal, etc.</p>
                 </div>
               </div>
-              <button className={`toggle ${user.notifyPhaseChange ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} />
+              <button className={`toggle ${user.notifyPhaseChange ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} role="switch" aria-checked={user.notifyPhaseChange} aria-label="Phase shift alerts" />
             </div>
 
             <div className="settings-item" style={{ border: 'none', padding: '12px 0' }} onClick={() => updateUser({ notifyLogReminder: !user.notifyLogReminder })}>
@@ -252,7 +254,7 @@ export default function SettingsView() {
                   <p style={{ fontSize: '12px' }}>Did you notice any symptoms?</p>
                 </div>
               </div>
-              <button className={`toggle ${user.notifyLogReminder ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} />
+              <button className={`toggle ${user.notifyLogReminder ? 'active' : ''}`} style={{ transform: 'scale(0.8)' }} role="switch" aria-checked={user.notifyLogReminder} aria-label="Daily check-in reminder" />
             </div>
           </div>
         )}
@@ -264,7 +266,7 @@ export default function SettingsView() {
 
         {!editingCycle ? (
           <>
-            <div className="settings-item" onClick={() => setEditingCycle(true)}>
+            <div className="settings-item" role="button" tabIndex={0} onClick={() => setEditingCycle(true)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditingCycle(true); } }}>
               <div className="settings-item-left">
                 <div className="settings-item-icon" style={{ background: 'var(--phase-follicular-bg)' }}>
                   <Calendar size={20} color="var(--phase-follicular)" />
@@ -276,7 +278,7 @@ export default function SettingsView() {
               </div>
               <ChevronRight size={18} color="var(--text-tertiary)" />
             </div>
-            <div className="settings-item" onClick={() => setEditingCycle(true)}>
+            <div className="settings-item" role="button" tabIndex={0} onClick={() => setEditingCycle(true)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditingCycle(true); } }}>
               <div className="settings-item-left">
                 <div className="settings-item-icon" style={{ background: 'var(--phase-menstrual-bg)' }}>
                   <Heart size={20} color="var(--phase-menstrual)" />
@@ -343,7 +345,7 @@ export default function SettingsView() {
       <div className="settings-group">
         <div className="settings-group-title">Data & Privacy</div>
 
-        <div className="settings-item" onClick={() => setShowSecurity(!showSecurity)}>
+        <div className="settings-item" role="button" tabIndex={0} aria-expanded={showSecurity} onClick={() => setShowSecurity(!showSecurity)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowSecurity(!showSecurity); } }}>
           <div className="settings-item-left">
             <div className="settings-item-icon" style={{ background: 'var(--phase-follicular-bg)' }}>
               <Shield size={20} color="var(--phase-follicular)" />
@@ -441,7 +443,7 @@ export default function SettingsView() {
 
       {/* Logout */}
       <div className="settings-group">
-        <div className="settings-item" onClick={logout} style={{ borderColor: 'rgba(255, 82, 82, 0.2)' }}>
+        <div className="settings-item" role="button" tabIndex={0} onClick={logout} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); logout(); } }} style={{ borderColor: 'var(--error)' }}>
           <div className="settings-item-left">
             <div className="settings-item-icon">
               <LogOut size={20} color="var(--error)" />

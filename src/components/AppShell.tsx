@@ -105,28 +105,26 @@ export default function AppShell() {
           <button
             className="header-btn"
             onClick={toggleDarkMode}
+            aria-label={state.user.darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             title={state.user.darkMode ? 'Light Mode' : 'Dark Mode'}
             id="theme-toggle-btn"
           >
             {state.user.darkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          {state.user.photoURL ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={state.user.photoURL}
-              alt="Profile"
-              className="user-avatar"
-              onClick={() => setActiveTab('settings')}
-            />
-          ) : (
-            <button
-              className="header-btn"
-              onClick={() => setActiveTab('settings')}
-              id="profile-btn"
-            >
+          <button
+            className="header-btn"
+            onClick={() => setActiveTab('settings')}
+            aria-label="Open settings"
+            id="profile-btn"
+            style={state.user.photoURL ? { padding: 0, background: 'none' } : undefined}
+          >
+            {state.user.photoURL ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={state.user.photoURL} alt="" className="user-avatar" />
+            ) : (
               <User size={18} />
-            </button>
-          )}
+            )}
+          </button>
         </div>
       </header>
 
@@ -162,6 +160,7 @@ export default function AppShell() {
           className="nav-log-btn"
           onClick={() => openLog()}
           id="nav-log"
+          aria-label="Log today"
           title="Log Today"
         >
           <Plus size={24} />

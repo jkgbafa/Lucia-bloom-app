@@ -99,7 +99,7 @@ export function makeDefaultProfile(name: string, email: string, photoURL: string
     notifyPrePeriod: false,
     notifyPhaseChange: false,
     notifyLogReminder: false,
-    darkMode: false,
+    darkMode: typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches,
     createdAt: new Date().toISOString(),
   };
 }
@@ -176,16 +176,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const loadedState = loadState();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(loadedState);
     setLoaded(true);
-
-    // Apply dark mode
-    if (loadedState.user?.darkMode) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-    }
 
     // Mount Firebase listener
     import('@/lib/firebase').then(({ auth, db }) => {
@@ -215,6 +207,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveState(state);
     }
   }, [state, loaded]);
+
+  // Theme tracks the profile, including after a cloud merge changes it
+  const darkMode = state.user?.darkMode;
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  }, [darkMode]);
 
   const setUser = useCallback((user: UserProfile) => {
     setState(prev => ({ ...prev, user, isAuthenticated: true }));
@@ -314,7 +316,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   if (!loaded) {
-    return null; // or a loading spinner
+    return (
+      <div className="app-splash" aria-label="Loading Bloom">
+        <div className="app-splash-logo">🌸</div>
+      </div>
+    );
   }
 
   return (

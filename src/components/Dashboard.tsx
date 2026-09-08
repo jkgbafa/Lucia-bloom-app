@@ -10,16 +10,8 @@ import {
   computeCycleStats,
 } from '@/lib/cycle-utils';
 import { Droplets, Smile, Zap, Moon, AlertCircle } from 'lucide-react';
-import * as Icons from 'lucide-react';
+import { renderIcon } from '@/lib/icons';
 import PhaseModal from './PhaseModal';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const renderIcon = (name: string, props: any = {}) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const IconComponent = (Icons as any)[name];
-  if (!IconComponent) return null;
-  return <IconComponent {...props} />;
-};
 
 interface DashboardProps {
   onOpenLog: (section?: string) => void;
@@ -63,13 +55,16 @@ export default function Dashboard({ onOpenLog }: DashboardProps) {
     <div className="page-enter">
       {/* Welcome Guide Modal */}
       {showWelcomeGuide && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 999, 
-          background: 'var(--bg-overlay)', 
-          padding: 'var(--space-xl)', 
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div className="card" style={{ 
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999,
+            background: 'var(--bg-overlay)',
+            padding: 'var(--space-xl)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+          onClick={e => { if (e.target === e.currentTarget) dismissGuide(); }}
+        >
+          <div className="card" role="dialog" aria-modal="true" aria-label="Welcome to Bloom" style={{
             width: '100%', maxWidth: '400px', margin: 0,
             animation: 'slideUp 0.3s ease-out'
           }}>

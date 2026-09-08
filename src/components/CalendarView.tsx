@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAppContext } from '@/lib/store';
-import { getDayInfo, formatDate, getMonthDays } from '@/lib/cycle-utils';
+import { getDayInfo, formatDate, getMonthDays, getSymptomLabelText, computeCycleStats } from '@/lib/cycle-utils';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 
 interface CalendarProps {
@@ -44,9 +44,11 @@ export default function CalendarView({ onSelectDate }: CalendarProps) {
     }
   };
 
+  const stats = computeCycleStats(user);
+
   const handleDayClick = (dateStr: string) => {
+    // First tap shows the day summary; editing happens via the button on that card
     setSelectedDate(dateStr);
-    onSelectDate(dateStr);
   };
 
   const getDayClassName = (date: Date): string => {
@@ -56,8 +58,8 @@ export default function CalendarView({ onSelectDate }: CalendarProps) {
     const dayInfo = getDayInfo(
       dateStr,
       user.lastPeriodStart,
-      user.cycleLength,
-      user.periodLength,
+      stats.avgCycleLength,
+      stats.avgPeriodLength,
       user.periodDates || []
     );
 
@@ -90,7 +92,7 @@ export default function CalendarView({ onSelectDate }: CalendarProps) {
 
   // Get selected day details
   const selectedDayInfo = selectedDate && user.lastPeriodStart
-    ? getDayInfo(selectedDate, user.lastPeriodStart, user.cycleLength, user.periodLength, user.periodDates || [])
+    ? getDayInfo(selectedDate, user.lastPeriodStart, stats.avgCycleLength, stats.avgPeriodLength, user.periodDates || [])
     : null;
 
   const selectedLog = selectedDate ? state.logs[selectedDate] : null;
@@ -194,12 +196,12 @@ export default function CalendarView({ onSelectDate }: CalendarProps) {
               )}
               {selectedLog.mood.length > 0 && (
                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  <strong>Mood:</strong> {selectedLog.mood.join(', ')}
+                  <strong>Mood:</strong> {selectedLog.mood.map(getSymptomLabelText).join(', ')}
                 </div>
               )}
               {selectedLog.symptoms.length > 0 && (
                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                  <strong>Symptoms:</strong> {selectedLog.symptoms.join(', ')}
+                  <strong>Symptoms:</strong> {selectedLog.symptoms.map(getSymptomLabelText).join(', ')}
                 </div>
               )}
               {selectedLog.notes && (
@@ -210,8 +212,18 @@ export default function CalendarView({ onSelectDate }: CalendarProps) {
             </div>
           ) : (
             <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
-              No data logged for this day. Tap the + button to log.
+              Nothing logged for this day yet.
             </p>
+          )}
+
+          {selectedDate <= todayStr && (
+            <button
+              className="onboarding-btn onboarding-btn-primary"
+              style={{ width: '100%', marginTop: 'var(--space-md)' }}
+              onClick={() => onSelectDate(selectedDate)}
+            >
+              {selectedLog ? 'Edit this day' : 'Log this day'}
+            </button>
           )}
         </div>
       )}

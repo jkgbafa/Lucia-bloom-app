@@ -65,11 +65,16 @@ export default function OnboardingScreen() {
   const handleNext = () => {
     if (step === totalSteps - 1) {
       // Complete onboarding
+      const notificationsEnabled = values.notificationsEnabled as boolean;
       updateUser({
         lastPeriodStart: values.lastPeriodStart as string,
         cycleLength: values.cycleLength as number,
         periodLength: values.periodLength as number,
-        notificationsEnabled: values.notificationsEnabled as boolean,
+        notificationsEnabled,
+        // Saying yes here should actually turn the reminders on, not leave every sub-toggle off
+        notifyPrePeriod: notificationsEnabled,
+        notifyPhaseChange: notificationsEnabled,
+        notifyLogReminder: notificationsEnabled,
         onboardingComplete: true,
       });
       return;
@@ -152,7 +157,7 @@ export default function OnboardingScreen() {
                   <p>Period reminders, phase changes, and wellness tips</p>
                 </div>
               </div>
-              <button className={`toggle ${values[currentStep.field!] ? 'active' : ''}`} />
+              <button className={`toggle ${values[currentStep.field!] ? 'active' : ''}`} role="switch" aria-checked={Boolean(values[currentStep.field!])} aria-label="Enable notifications" />
             </div>
           </div>
         )}

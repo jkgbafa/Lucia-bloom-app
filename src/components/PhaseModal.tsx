@@ -1,15 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { PhaseInfo } from '@/lib/cycle-utils';
 import { Utensils, Activity, Heart } from 'lucide-react';
-import * as Icons from 'lucide-react';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const renderIcon = (name: string, props: any = {}) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const IconComponent = (Icons as any)[name];
-  if (!IconComponent) return null;
-  return <IconComponent {...props} />;
-};
+import { renderIcon } from '@/lib/icons';
 
 interface PhaseModalProps {
   phase: PhaseInfo;
@@ -17,14 +9,23 @@ interface PhaseModalProps {
 }
 
 export default function PhaseModal({ phase, onClose }: PhaseModalProps) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'var(--bg-overlay)',
-      display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-      animation: 'fadeIn 0.2s ease-out'
-    }}>
-      <div className="card" style={{
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'var(--bg-overlay)',
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+        animation: 'fadeIn 0.2s ease-out'
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="card" role="dialog" aria-modal="true" aria-label={`${phase.label} details`} style={{
         margin: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
         maxHeight: '90vh', overflowY: 'auto', padding: 'var(--space-xl)',
         animation: 'slideUp 0.3s ease-out', boxShadow: '0 -10px 40px rgba(0,0,0,0.1)'
@@ -35,8 +36,9 @@ export default function PhaseModal({ phase, onClose }: PhaseModalProps) {
               {renderIcon(phase.icon, { size: 16 })} {phase.label}
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
+            aria-label="Close"
             className="log-close-btn"
             style={{ background: 'var(--bg-tertiary)', border: 'none', width: '32px', height: '32px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >

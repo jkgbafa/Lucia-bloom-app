@@ -525,7 +525,7 @@ export const SYMPTOM_CATEGORIES = {
     icon: 'User',
     options: [
       { id: 'bloating', label: 'Bloating', icon: 'Circle' },
-      { id: 'fatigue', label: 'Fatigue', icon: 'BatteryMoon' },
+      { id: 'fatigue', label: 'Fatigue', icon: 'BatteryLow' },
       { id: 'nausea', label: 'Nausea', icon: 'AlertCircle' },
       { id: 'acne', label: 'Acne', icon: 'Target' },
       { id: 'clearSkin', label: 'Clear skin', icon: 'Sparkles' },
@@ -606,3 +606,11 @@ export const SYMPTOM_CATEGORIES = {
 };
 
 export type SymptomCategory = keyof typeof SYMPTOM_CATEGORIES;
+
+export function getSymptomLabelText(id: string): string {
+  for (const category of Object.values(SYMPTOM_CATEGORIES)) {
+    const option = category.options.find(o => o.id === id);
+    if (option) return option.label;
+  }
+  return id;
+}

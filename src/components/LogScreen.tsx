@@ -4,15 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext, DayLog } from '@/lib/store';
 import { SYMPTOM_CATEGORIES, formatDate } from '@/lib/cycle-utils';
 import { X, Droplets, Plus, Minus, CheckCircle, Droplet } from 'lucide-react';
-import * as Icons from 'lucide-react';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const renderIcon = (name: string, props: any = {}) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const IconComponent = (Icons as any)[name];
-  if (!IconComponent) return null;
-  return <IconComponent {...props} />;
-};
+import { renderIcon } from '@/lib/icons';
 
 interface LogScreenProps {
   date?: string;
@@ -134,9 +126,27 @@ export default function LogScreen({ date, initialSection, onClose }: LogScreenPr
         </button>
       </div>
 
+      {/* Quick jump between sections — the form is long */}
+      <nav className="log-quick-nav" aria-label="Log sections">
+        {[
+          { id: 'period', label: 'Period' },
+          ...Object.entries(SYMPTOM_CATEGORIES).map(([key, category]) => ({ id: key, label: category.label })),
+          { id: 'water', label: 'Water' },
+          { id: 'journal', label: 'Journal' },
+        ].map(section => (
+          <button
+            key={section.id}
+            className="log-quick-nav-chip"
+            onClick={() => document.getElementById(`log-section-${section.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
+
       <div className="log-content">
         {/* Period Toggle */}
-        <div className="log-section">
+        <div className="log-section" id="log-section-period">
           <h3 className="log-section-title">
             <Droplets size={18} color="var(--phase-menstrual)" />
             Period

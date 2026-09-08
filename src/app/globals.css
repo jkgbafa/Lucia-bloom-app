@@ -42,7 +42,7 @@
 
   --text-primary: #1C1C21;
   --text-secondary: #6E6E77;
-  --text-tertiary: #A1A1AA;
+  --text-tertiary: #71717A; /* was #A1A1AA — failed 4.5:1 contrast on white */
   --text-on-primary: #FFFFFF;
   --text-link: #FF708C;
 
@@ -96,8 +96,8 @@
   --bg-nav: rgba(18, 18, 18, 0.98);
 
   --text-primary: #F5F5F7;
-  --text-secondary: #9E9E9E;
-  --text-tertiary: #757575;
+  --text-secondary: #A6A6AD;
+  --text-tertiary: #8E8E96; /* readable on #121212 cards */
   --text-on-primary: #FFFFFF;
   --text-link: #FF9EAE;
 
@@ -1128,4 +1128,98 @@ body {
   font-size: 15px;
   cursor: pointer;
   margin-bottom: 16px;
+}
+
+/* ===== Polish pass: splash, a11y, desktop, motion ===== */
+
+/* Branded splash while local data hydrates (replaces the white flash) */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+}
+
+.app-splash-logo {
+  font-size: 48px;
+  animation: splashPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes splashPulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+/* Visible keyboard focus everywhere, without polluting mouse clicks */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Larger, calmer desktop presentation instead of a floating phone strip */
+@media (min-width: 768px) {
+  body {
+    background: var(--bg-tertiary);
+  }
+
+  .app-container {
+    min-height: 100dvh;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-xl);
+  }
+}
+
+/* Sticky quick-nav inside the log screen */
+.log-quick-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--divider);
+  scrollbar-width: none;
+}
+
+.log-quick-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.log-quick-nav-chip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color-strong);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.log-quick-nav-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Anchored section scrolls land below the sticky log header */
+.log-section {
+  scroll-margin-top: 64px;
+}
+
+/* Respect users who turn off motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

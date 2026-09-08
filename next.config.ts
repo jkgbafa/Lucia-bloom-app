@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Fully client-side app — static export deploys straight to Netlify
+  output: "export",
 };
 
 export default nextConfig;

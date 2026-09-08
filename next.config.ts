@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   output: "export",
   // GitHub Pages serves under /Lucia-bloom-app; Netlify serves at the root
   basePath: process.env.BASE_PATH || "",
+  // Emit partner/index.html so /partner/ works on GitHub Pages
+  trailingSlash: true,
 };
 
 export default nextConfig;

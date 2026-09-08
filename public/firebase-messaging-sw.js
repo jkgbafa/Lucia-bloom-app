@@ -13,12 +13,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+// The SW may live at the domain root (Netlify) or under a subpath (GitHub Pages);
+// resolve everything relative to where this file is served from.
+const BASE = new URL('./', self.location).pathname;
+
 messaging.onBackgroundMessage((payload) => {
   const title = (payload.notification && payload.notification.title) || 'Bloom';
   self.registration.showNotification(title, {
     body: payload.notification && payload.notification.body,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: BASE + 'icons/icon-192.png',
+    badge: BASE + 'icons/icon-192.png',
     vibrate: [200, 100, 200],
   });
 });
@@ -29,7 +33,7 @@ self.addEventListener('notificationclick', (event) => {
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       const existing = clientList.find((c) => 'focus' in c);
       if (existing) return existing.focus();
-      if (clients.openWindow) return clients.openWindow('/');
+      if (clients.openWindow) return clients.openWindow(BASE);
     })
   );
 });
@@ -62,13 +66,13 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return res;
         })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match(BASE)))
     );
     return;
   }
 
   // Hashed static assets and icons: cache first (they never change under the same URL)
-  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/icons/') || url.pathname === '/manifest.json') {
+  if (url.pathname.includes('/_next/static/') || url.pathname.startsWith(BASE + 'icons/') || url.pathname === BASE + 'manifest.json') {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         if (cached) return cached;

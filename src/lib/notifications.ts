@@ -12,7 +12,8 @@ import { getMessagingInstance } from './firebase';
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
   try {
-    const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+    const base = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const reg = await navigator.serviceWorker.register(`${base}/firebase-messaging-sw.js`, { scope: `${base}/` });
     console.log('[Bloom] Service worker registered:', reg.scope);
     return reg;
   } catch (e) {

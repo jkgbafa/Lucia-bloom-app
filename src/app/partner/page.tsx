@@ -19,6 +19,16 @@ import { Heart, Flower2, CalendarDays, Flame, Lightbulb, ShieldAlert, LogOut } f
 const ADMIN_EMAILS = ['joshuagbafa108@gmail.com'];
 const PARTNER_EMAIL = 'ladusei60@gmail.com';
 
+// Extra gate before the sign-in screen. SHA-256 hash so the password isn't
+// readable in the bundle; the real security is still Google sign-in + rules.
+const PASSWORD_HASH = 'fe6b024a1eee7205f990a2cdd06fe86a8fc8a54d0a572f0b12b821bd5257af9e';
+
+async function checkPassword(input: string): Promise<boolean> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  const hex = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+  return hex === PASSWORD_HASH;
+}
+
 interface PartnerPhaseGuide {
   vibe: string;
   libido: string;
@@ -92,6 +102,21 @@ export default function PartnerPage() {
   const [data, setData] = useState<PartnerData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unlocked, setUnlocked] = useState(
+    () => typeof window !== 'undefined' && sessionStorage.getItem('bloom_partner_ok') === '1'
+  );
+  const [password, setPassword] = useState('');
+
+  const tryUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (await checkPassword(password)) {
+      sessionStorage.setItem('bloom_partner_ok', '1');
+      setUnlocked(true);
+      setError(null);
+    } else {
+      setError('Wrong password.');
+    }
+  };
 
   const signIn = async () => {
     setBusy(true);
@@ -131,6 +156,29 @@ export default function PartnerPage() {
     setEmail(null);
     setData(null);
   };
+
+  if (!unlocked) {
+    return (
+      <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-xl)' }}>
+        <form onSubmit={tryUnlock} style={{ textAlign: 'center', maxWidth: '300px', width: '100%' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, marginBottom: 'var(--space-md)' }}>🔒</h1>
+          {error && <p role="alert" style={{ color: 'var(--error)', fontSize: '13px', marginBottom: 'var(--space-sm)' }}>{error}</p>}
+          <input
+            type="password"
+            className="onboarding-input"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            aria-label="Password"
+            autoFocus
+          />
+          <button type="submit" className="onboarding-btn onboarding-btn-primary" style={{ width: '100%', marginTop: 'var(--space-md)' }}>
+            Enter
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (!data) {
     return (

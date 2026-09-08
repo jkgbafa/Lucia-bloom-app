@@ -184,8 +184,8 @@ export const bloomNotifications = onSchedule("0 * * * *", async () => {
           token: profile.fcmToken,
           notification: message,
           webpush: {
-            fcmOptions: { link: "/" },
-            notification: { icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", vibrate: [200, 100, 200] },
+            fcmOptions: { link: "https://jkgbafa.github.io/Lucia-bloom-app/" },
+            notification: { icon: "https://jkgbafa.github.io/Lucia-bloom-app/icons/icon-192.png", badge: "https://jkgbafa.github.io/Lucia-bloom-app/icons/icon-192.png", vibrate: [200, 100, 200] },
           },
         });
         sent++;
